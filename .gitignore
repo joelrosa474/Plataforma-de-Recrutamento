@@ -1,0 +1,55 @@
+# Ambientes Virtuais Python
+backend/.venv/
+backend/venv/
+.venv/
+venv/
+ENV/
+
+# Bytecode e Caches Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Banco de Dados Local SQLite
+*.db
+*.sqlite
+*.sqlite3
+backend/recrutamento.db
+
+# Arquivos de Upload de Teste
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/uploads/curriculos/*
+!backend/uploads/curriculos/.gitkeep
+
+# Variáveis de Ambiente e Segredos (NUNCA versionar)
+.env
+.env.*
+!.env.example
+*.env
+backend/.env
+backend/.env.*
+!backend/.env.example
+webapp/.env
+webapp/.env.*
+!webapp/.env.example
+
+# Dependências e Build do Frontend (Next.js / Node)
+webapp/node_modules/
+webapp/.next/
+webapp/out/
+webapp/build/
+webapp/dist/
+*.tsbuildinfo
+webapp/tsconfig.tsbuildinfo
+
+# Ficheiros Temporários do Sistema Operacional e Editores
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.vscode/
+.idea/
+"comando do servidor.txt"

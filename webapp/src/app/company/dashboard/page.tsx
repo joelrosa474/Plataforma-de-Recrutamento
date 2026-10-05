@@ -1,0 +1,15 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { BriefcaseBusiness, FileText, Users } from "lucide-react";
+import { api, ApiApplication, ApiJob, getSession } from "@/lib/api";
+
+export default function CompanyDashboard() {
+  const [jobs, setJobs] = useState<ApiJob[]>([]); const [applications, setApplications] = useState<ApiApplication[]>([]); const [error, setError] = useState("");
+  useEffect(() => { const session = getSession(); if (!session) { setError("Entre com uma conta de empresa para ver o painel."); return; } api.myJobs(session.token).then(async (ownJobs) => { setJobs(ownJobs); const lists = await Promise.all(ownJobs.map((job) => api.applicationsByJob(job.id, session.token))); setApplications(lists.flat()); }).catch((e: Error) => setError(e.message)); }, []);
+  const active = jobs.filter((job) => job.status === "Aberta").length;
+  const interviewing = applications.filter((app) => app.fase_atual === "Entrevista").length;
+  const cards = [{ label: "Vagas abertas", value: active, icon: BriefcaseBusiness, href: "/company/jobs" }, { label: "Candidaturas recebidas", value: applications.length, icon: Users, href: "/company/candidates" }, { label: "Em entrevista", value: interviewing, icon: FileText, href: "/company/candidates" }];
+  return <section><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold text-sky-700">Visão geral</p><h1 className="mt-1 text-3xl font-bold text-slate-950">Painel da empresa</h1><p className="mt-2 text-slate-600">Acompanhe a atividade das suas vagas.</p></div><Link href="/company/jobs" className="rounded-md bg-sky-600 px-4 py-2.5 text-sm font-bold text-white">Publicar vaga</Link></div>{error ? <p className="mt-6 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : <><div className="mt-7 grid gap-5 md:grid-cols-3">{cards.map((card) => { const Icon = card.icon; return <Link key={card.label} href={card.href} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-sky-300"><Icon className="h-5 w-5 text-sky-700" /><p className="mt-4 text-sm font-medium text-slate-500">{card.label}</p><p className="mt-1 text-3xl font-bold text-slate-950">{card.value}</p></Link>; })}</div><section className="mt-8 rounded-xl border border-slate-200 bg-white"><div className="border-b border-slate-100 p-5"><h2 className="font-bold text-slate-950">Vagas recentes</h2></div>{jobs.length === 0 ? <p className="p-6 text-sm text-slate-600">Ainda não publicou vagas.</p> : <div className="divide-y divide-slate-100">{jobs.slice(0, 5).map((job) => <Link key={job.id} href="/company/jobs" className="flex items-center justify-between p-5 hover:bg-slate-50"><div><p className="font-semibold text-slate-950">{job.titulo}</p><p className="mt-1 text-sm text-slate-500">{job.requisitos.join(" · ") || "Sem requisitos definidos"}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{job.status}</span></Link>)}</div>}</section></>}</section>;
+}
