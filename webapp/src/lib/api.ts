@@ -17,6 +17,7 @@ export type ApiApplication = {
   candidato_id: number;
   fase_atual: "Triagem" | "Entrevista" | "Contratado" | "Reprovado";
   match_score: number | null;
+  feedback_ia?: string | null;
   curriculo_nome?: string | null;
   tem_curriculo?: boolean;
   data_aplicacao: string;

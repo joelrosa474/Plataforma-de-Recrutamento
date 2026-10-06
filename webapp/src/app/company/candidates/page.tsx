@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileDown, Sparkles, MapPin, Mail, Calendar, FileText, CheckCircle, Clock } from "lucide-react";
+import { FileDown, Sparkles, MapPin, Mail, Calendar, FileText, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { api, ApiApplication, ApiJob, getSession, SessionUser } from "@/lib/api";
 
 const phases = ["Triagem", "Entrevista", "Contratado", "Reprovado"] as const;
@@ -81,6 +81,8 @@ export default function CompanyCandidatesPage() {
     }
   }
 
+  const [expandedFeedbackId, setExpandedFeedbackId] = useState<number | null>(null);
+
   return (
     <section className="space-y-6">
       <div>
@@ -127,92 +129,124 @@ export default function CompanyCandidatesPage() {
               const candidato = app.candidato || profiles[app.candidato_id];
               const score = app.match_score;
               const hasCV = app.tem_curriculo ?? true;
+              const isFeedbackOpen = expandedFeedbackId === app.id;
 
               return (
-                <article key={app.id} className="flex flex-col gap-5 p-6 hover:bg-slate-50/50 transition sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-bold text-slate-950">
-                        {candidato?.nome ?? `Candidato #${app.candidato_id}`}
-                      </h2>
-                      {score !== null && score !== undefined ? (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                            score >= 80
-                              ? "bg-emerald-100 text-emerald-800"
-                              : score >= 60
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          Match IA: {score.toFixed(0)}% {score >= 80 ? "· Alta Aderência" : score >= 60 ? "· Aderência Média" : "· Baixa Aderência"}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700 animate-pulse">
-                          <Clock className="h-3 w-3" />
-                          IA a analisar currículo em background…
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-                      {candidato?.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3.5 w-3.5" />
-                          {candidato.email}
-                        </span>
-                      )}
-                      {candidato?.localizacao && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {candidato.localizacao}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {new Date(app.data_aplicacao).toLocaleDateString("pt-AO")}
-                      </span>
-                    </div>
-
-                    {candidato?.competencias && candidato.competencias.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {candidato.competencias.map((skill) => (
-                          <span key={skill} className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                            {skill}
+                <article key={app.id} className="p-6 hover:bg-slate-50/50 transition">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-950">
+                          {candidato?.nome ?? `Candidato #${app.candidato_id}`}
+                        </h2>
+                        {score !== null && score !== undefined ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              score >= 80
+                                ? "bg-emerald-100 text-emerald-800"
+                                : score >= 60
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            Match IA: {score.toFixed(0)}% {score >= 80 ? "· Alta Aderência" : score >= 60 ? "· Aderência Média" : "· Baixa Aderência"}
                           </span>
-                        ))}
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700 animate-pulse">
+                            <Clock className="h-3 w-3" />
+                            IA a analisar currículo em background…
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    {hasCV && (
-                      <button
-                        type="button"
-                        onClick={() => downloadCV(app)}
-                        disabled={downloadingId === app.id}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-sky-700 disabled:opacity-50"
-                        title="Descarregar currículo original em PDF"
-                      >
-                        <FileDown className="h-4 w-4 text-sky-600" />
-                        {downloadingId === app.id ? "A descarregar…" : "Ver Currículo (PDF)"}
-                      </button>
-                    )}
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                        {candidato?.email && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="h-3.5 w-3.5" />
+                            {candidato.email}
+                          </span>
+                        )}
+                        {candidato?.localizacao && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {candidato.localizacao}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(app.data_aplicacao).toLocaleDateString("pt-AO")}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-500">Fase:</span>
-                      <select
-                        value={app.fase_atual}
-                        onChange={(e) => changePhase(app, e.target.value as ApiApplication["fase_atual"])}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm outline-none focus:border-sky-500"
-                      >
-                        {phases.map((phase) => (
-                          <option key={phase}>{phase}</option>
-                        ))}
-                      </select>
+                      {candidato?.competencias && candidato.competencias.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {candidato.competencias.map((skill) => (
+                            <span key={skill} className="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      {app.feedback_ia && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedFeedbackId(isFeedbackOpen ? null : app.id)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50/70 px-3.5 py-2 text-xs font-semibold text-purple-700 shadow-sm transition hover:bg-purple-100 hover:border-purple-300"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                          {isFeedbackOpen ? "Ocultar Parecer IA" : "Ver Parecer da IA"}
+                          {isFeedbackOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
+
+                      {hasCV && (
+                        <button
+                          type="button"
+                          onClick={() => downloadCV(app)}
+                          disabled={downloadingId === app.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-sky-700 disabled:opacity-50"
+                          title="Descarregar currículo original em PDF"
+                        >
+                          <FileDown className="h-4 w-4 text-sky-600" />
+                          {downloadingId === app.id ? "A descarregar…" : "Ver Currículo (PDF)"}
+                        </button>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-500">Fase:</span>
+                        <select
+                          value={app.fase_atual}
+                          onChange={(e) => changePhase(app, e.target.value as ApiApplication["fase_atual"])}
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm outline-none focus:border-sky-500"
+                        >
+                          {phases.map((phase) => (
+                            <option key={phase}>{phase}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
+
+                  {isFeedbackOpen && app.feedback_ia && (
+                    <div className="mt-4 rounded-xl border border-purple-100 bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-slate-50 p-4 text-xs text-slate-800 shadow-inner">
+                      <div className="flex items-center justify-between pb-2 border-b border-purple-100 mb-2.5">
+                        <div className="flex items-center gap-2 font-bold text-purple-950">
+                          <Sparkles className="h-4 w-4 text-purple-600" />
+                          <span>Parecer Técnico da Inteligência Artificial (Google Gemini)</span>
+                        </div>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-purple-100/80 px-2 py-0.5 text-[11px] font-bold text-purple-900">
+                          Compatibilidade: {score?.toFixed(0)}%
+                        </span>
+                      </div>
+                      <p className="whitespace-pre-line leading-relaxed text-slate-700">
+                        {app.feedback_ia}
+                      </p>
+                    </div>
+                  )}
                 </article>
               );
             })}

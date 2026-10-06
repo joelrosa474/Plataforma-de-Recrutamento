@@ -28,13 +28,13 @@ class GeminiScreenerAdapter(AIScreenerPort):
         # gemini-flash-latest é o modelo oficial mais estável e rápido para NLP e triagem
         self.model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
-    def calcular_match_score(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> float:
+    def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> tuple[float, str]:
         if not self.client:
-            return 50.0
+            return 50.0, "Análise automática desativada (chave de IA não configurada)."
 
         prompt = f"""
-        Atue como um recrutador técnico experiente.
-        Você deve avaliar a aderência de um candidato a uma vaga de emprego.
+        Atue como um recrutador técnico experiente e analítico.
+        Avalie a aderência do candidato à vaga de emprego especificada.
 
         DADOS DA VAGA:
         Descrição: {vaga_descricao}
@@ -44,7 +44,9 @@ class GeminiScreenerAdapter(AIScreenerPort):
         {curriculo_texto}
 
         Avalie o quão bem o currículo do candidato atende aos requisitos e à descrição da vaga.
-        Forneça um "score" de 0.0 a 100.0, onde 100 significa o candidato ideal.
+        Retorne:
+        - "score": nota de 0.0 a 100.0.
+        - "justificativa": análise concisa e profissional destacando os pontos fortes e eventuais lacunas técnicas encontradas.
         """
 
         for attempt in range(3):
@@ -59,15 +61,21 @@ class GeminiScreenerAdapter(AIScreenerPort):
                     ),
                 )
                 result = json.loads(response.text)
-                return float(result.get("score", 50.0))
+                score = float(result.get("score", 50.0))
+                justificativa = str(result.get("justificativa") or "Avaliação concluída pela IA.")
+                return score, justificativa
             except Exception as e:
                 if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
                     time.sleep(1.5 * (attempt + 1))
                     continue
-                print(f"Erro ao calcular match_score com Gemini: {e}")
-                return 50.0
+                print(f"Erro ao avaliar candidatura com Gemini: {e}")
+                return 50.0, "Não foi possível gerar a justificativa detalhada devido a uma instabilidade temporária na API."
 
-        return 50.0
+        return 50.0, "Análise concluída com pontuação padrão."
+
+    def calcular_match_score(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> float:
+        score, _ = self.avaliar_candidatura(curriculo_texto, vaga_descricao, vaga_requisitos)
+        return score
 
     def extrair_habilidades(self, curriculo_texto: str) -> list[str]:
         if not self.client:

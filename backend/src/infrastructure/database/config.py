@@ -68,6 +68,8 @@ def migrate_sqlite_schema():
             connection.execute(text("ALTER TABLE candidaturas ADD COLUMN curriculo_path TEXT"))
         if "curriculo_nome" not in cand_columns:
             connection.execute(text("ALTER TABLE candidaturas ADD COLUMN curriculo_nome TEXT"))
+        if "feedback_ia" not in cand_columns:
+            connection.execute(text("ALTER TABLE candidaturas ADD COLUMN feedback_ia TEXT"))
 
 
 # Dependência do FastAPI para injetar a sessão

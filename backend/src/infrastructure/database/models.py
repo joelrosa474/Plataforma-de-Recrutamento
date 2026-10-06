@@ -59,6 +59,7 @@ class CandidaturaModel(Base):
     candidato_id = Column(Integer, ForeignKey("usuarios.id"))
     fase_atual = Column(String, default="Triagem")
     match_score = Column(Float, nullable=True)
+    feedback_ia = Column(Text, nullable=True)
     curriculo_path = Column(String, nullable=True)
     curriculo_nome = Column(String, nullable=True)
     data_aplicacao = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -86,6 +86,7 @@ class CandidaturaDetalhadaResponse(BaseModel):
     candidato_id: int
     fase_atual: str
     match_score: Optional[float] = None
+    feedback_ia: Optional[str] = None
     curriculo_nome: Optional[str] = None
     tem_curriculo: bool = False
     data_aplicacao: datetime
@@ -190,6 +191,7 @@ def listar_candidatos_da_vaga(
             candidato_id=c.candidato_id,
             fase_atual=c.fase_atual,
             match_score=c.match_score,
+            feedback_ia=c.feedback_ia,
             curriculo_nome=c.curriculo_nome,
             tem_curriculo=tem_curriculo,
             data_aplicacao=c.data_aplicacao,

@@ -15,6 +15,7 @@ class Candidatura(BaseModel):
     candidato_id: int
     fase_atual: str = "Triagem" # Triagem, Entrevista, Contratado, Reprovado
     match_score: Optional[float] = None
+    feedback_ia: Optional[str] = None
     curriculo_path: Optional[str] = None
     curriculo_nome: Optional[str] = None
     data_aplicacao: datetime = Field(default_factory=datetime.now)
@@ -29,5 +30,7 @@ class Candidatura(BaseModel):
             raise ValueError("Transição de fase inválida.")
         self.fase_atual = nova_fase
 
-    def registrar_score(self, score: float):
+    def registrar_score(self, score: float, feedback: Optional[str] = None):
         self.match_score = score
+        if feedback is not None:
+            self.feedback_ia = feedback

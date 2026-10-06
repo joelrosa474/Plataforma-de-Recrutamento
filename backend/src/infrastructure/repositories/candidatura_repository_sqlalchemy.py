@@ -16,6 +16,7 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
                 candidato_id=candidatura.candidato_id,
                 fase_atual=candidatura.fase_atual,
                 match_score=candidatura.match_score,
+                feedback_ia=candidatura.feedback_ia,
                 curriculo_path=candidatura.curriculo_path,
                 curriculo_nome=candidatura.curriculo_nome,
                 data_aplicacao=candidatura.data_aplicacao
@@ -27,6 +28,7 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
             if db_candidatura:
                 db_candidatura.fase_atual = candidatura.fase_atual
                 db_candidatura.match_score = candidatura.match_score
+                db_candidatura.feedback_ia = candidatura.feedback_ia
                 if candidatura.curriculo_path:
                     db_candidatura.curriculo_path = candidatura.curriculo_path
                 if candidatura.curriculo_nome:
@@ -55,6 +57,7 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
             candidato_id=model.candidato_id,
             fase_atual=model.fase_atual,
             match_score=model.match_score,
+            feedback_ia=model.feedback_ia,
             curriculo_path=model.curriculo_path,
             curriculo_nome=model.curriculo_nome,
             data_aplicacao=model.data_aplicacao

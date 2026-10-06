@@ -37,12 +37,21 @@ class RealizarCandidaturaUseCase:
 
         if processar_ia and self.ai_screener:
             try:
-                score = self.ai_screener.calcular_match_score(
-                    curriculo_texto=curriculo_texto,
-                    vaga_descricao=vaga.descricao,
-                    vaga_requisitos=vaga.requisitos
-                )
-                salva.registrar_score(score)
+                if hasattr(self.ai_screener, "avaliar_candidatura"):
+                    score, feedback = self.ai_screener.avaliar_candidatura(
+                        curriculo_texto=curriculo_texto,
+                        vaga_descricao=vaga.descricao,
+                        vaga_requisitos=vaga.requisitos
+                    )
+                    salva.registrar_score(score, feedback)
+                else:
+                    score = self.ai_screener.calcular_match_score(
+                        curriculo_texto=curriculo_texto,
+                        vaga_descricao=vaga.descricao,
+                        vaga_requisitos=vaga.requisitos
+                    )
+                    salva.registrar_score(score)
+
                 if score >= 85.0:
                     salva.avancar_fase("Entrevista")
                 salva = self.candidatura_repo.salvar(salva)
@@ -61,12 +70,21 @@ class RealizarCandidaturaUseCase:
             return None
 
         try:
-            score = self.ai_screener.calcular_match_score(
-                curriculo_texto=curriculo_texto,
-                vaga_descricao=vaga.descricao,
-                vaga_requisitos=vaga.requisitos
-            )
-            candidatura.registrar_score(score)
+            if hasattr(self.ai_screener, "avaliar_candidatura"):
+                score, feedback = self.ai_screener.avaliar_candidatura(
+                    curriculo_texto=curriculo_texto,
+                    vaga_descricao=vaga.descricao,
+                    vaga_requisitos=vaga.requisitos
+                )
+                candidatura.registrar_score(score, feedback)
+            else:
+                score = self.ai_screener.calcular_match_score(
+                    curriculo_texto=curriculo_texto,
+                    vaga_descricao=vaga.descricao,
+                    vaga_requisitos=vaga.requisitos
+                )
+                candidatura.registrar_score(score)
+
             if score >= 85.0:
                 candidatura.avancar_fase("Entrevista")
             salva = self.candidatura_repo.salvar(candidatura)
