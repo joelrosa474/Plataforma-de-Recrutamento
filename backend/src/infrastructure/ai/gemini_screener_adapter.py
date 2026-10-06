@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -24,68 +25,80 @@ class GeminiScreenerAdapter(AIScreenerPort):
         else:
             self.client = genai.Client(api_key=api_key)
 
-        # gemini-2.0-flash é mais rápido e eficiente para tarefas de NLP
-        self.model_name = "gemini-2.0-flash"
+        # gemini-flash-latest é o modelo oficial mais estável e rápido para NLP e triagem
+        self.model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
     def calcular_match_score(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> float:
         if not self.client:
             return 50.0
-        try:
-            prompt = f"""
-            Atue como um recrutador técnico experiente.
-            Você deve avaliar a aderência de um candidato a uma vaga de emprego.
 
-            DADOS DA VAGA:
-            Descrição: {vaga_descricao}
-            Requisitos: {', '.join(vaga_requisitos)}
+        prompt = f"""
+        Atue como um recrutador técnico experiente.
+        Você deve avaliar a aderência de um candidato a uma vaga de emprego.
 
-            CURRÍCULO DO CANDIDATO:
-            {curriculo_texto}
+        DADOS DA VAGA:
+        Descrição: {vaga_descricao}
+        Requisitos: {', '.join(vaga_requisitos)}
 
-            Avalie o quão bem o currículo do candidato atende aos requisitos e à descrição da vaga.
-            Forneça um "score" de 0.0 a 100.0, onde 100 significa o candidato ideal.
-            """
+        CURRÍCULO DO CANDIDATO:
+        {curriculo_texto}
 
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=MatchScoreSchema,
-                    temperature=0.2,
-                ),
-            )
+        Avalie o quão bem o currículo do candidato atende aos requisitos e à descrição da vaga.
+        Forneça um "score" de 0.0 a 100.0, onde 100 significa o candidato ideal.
+        """
 
-            result = json.loads(response.text)
-            return float(result.get("score", 50.0))
-        except Exception as e:
-            print(f"Erro ao calcular match_score com Gemini: {e}")
-            return 50.0  # Valor default seguro em caso de falha
+        for attempt in range(3):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=MatchScoreSchema,
+                        temperature=0.2,
+                    ),
+                )
+                result = json.loads(response.text)
+                return float(result.get("score", 50.0))
+            except Exception as e:
+                if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                print(f"Erro ao calcular match_score com Gemini: {e}")
+                return 50.0
+
+        return 50.0
 
     def extrair_habilidades(self, curriculo_texto: str) -> list[str]:
         if not self.client:
             return []
-        try:
-            prompt = f"""
-            Analise o seguinte currículo e extraia todas as habilidades (skills) técnicas e comportamentais.
-            Retorne uma lista limpa e padronizada.
 
-            CURRÍCULO:
-            {curriculo_texto}
-            """
+        prompt = f"""
+        Analise o seguinte currículo e extraia todas as habilidades (skills) técnicas e comportamentais.
+        Retorne uma lista limpa e padronizada.
 
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=HabilidadesSchema,
-                    temperature=0.1,
-                ),
-            )
+        CURRÍCULO:
+        {curriculo_texto}
+        """
 
-            result = json.loads(response.text)
-            return result.get("habilidades", [])
-        except Exception as e:
-            print(f"Erro ao extrair habilidades com Gemini: {e}")
-            return []
+        for attempt in range(3):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=HabilidadesSchema,
+                        temperature=0.1,
+                    ),
+                )
+                result = json.loads(response.text)
+                return result.get("habilidades", [])
+            except Exception as e:
+                if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                print(f"Erro ao extrair habilidades com Gemini: {e}")
+                return []
+
+        return []
