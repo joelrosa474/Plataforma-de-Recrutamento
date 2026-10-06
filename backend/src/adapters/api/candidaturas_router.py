@@ -43,6 +43,17 @@ def executar_triagem_ia_background(candidatura_id: int, curriculo_texto: str, va
         candidatura = use_case.processar_triagem_ia(candidatura_id=candidatura_id, curriculo_texto=curriculo_texto)
         if candidatura:
             db.commit()
+            vaga = vaga_repo.buscar_por_id(vaga_id)
+            if vaga:
+                score_msg = f"{candidatura.match_score:.0f}%" if candidatura.match_score is not None else "N/A"
+                criar_notificacao(
+                    db,
+                    vaga.empresa_id,
+                    "Triagem de IA Concluída",
+                    f"A IA concluiu a análise de uma candidatura para a vaga '{vaga.titulo}'. Match: {score_msg} (Fase atual: {candidatura.fase_atual})."
+                )
+                db.commit()
+
             if candidatura.fase_atual == "Entrevista":
                 criar_notificacao(
                     db,

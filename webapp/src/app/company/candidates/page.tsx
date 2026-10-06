@@ -135,7 +135,7 @@ export default function CompanyCandidatesPage() {
                       <h2 className="text-lg font-bold text-slate-950">
                         {candidato?.nome ?? `Candidato #${app.candidato_id}`}
                       </h2>
-                      {score !== null && score !== undefined && (
+                      {score !== null && score !== undefined ? (
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
                             score >= 80
@@ -146,7 +146,12 @@ export default function CompanyCandidatesPage() {
                           }`}
                         >
                           <Sparkles className="h-3 w-3" />
-                          Match IA: {score.toFixed(0)}%
+                          Match IA: {score.toFixed(0)}% {score >= 80 ? "· Alta Aderência" : score >= 60 ? "· Aderência Média" : "· Baixa Aderência"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700 animate-pulse">
+                          <Clock className="h-3 w-3" />
+                          IA a analisar currículo em background…
                         </span>
                       )}
                     </div>
