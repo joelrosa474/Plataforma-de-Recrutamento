@@ -33,12 +33,13 @@ export default function CompanySettingsPage() {
     event.preventDefault();
     const session = getSession();
     if (!session) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api.updatePassword(String(form.get("senha_atual")), String(form.get("nova_senha")), session.token);
       setMessage("Palavra-passe atualizada com sucesso.");
       setError("");
-      event.currentTarget.reset();
+      formElement?.reset();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível atualizar a palavra-passe.");
       setMessage("");
