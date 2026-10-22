@@ -14,10 +14,6 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /health
-    disk:
-      name: rh-uploads
-      mountPath: /app/uploads
-      sizeGB: 1
     envVars:
       - key: APP_ENV
         value: production
