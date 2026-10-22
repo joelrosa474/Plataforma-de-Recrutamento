@@ -18,12 +18,14 @@ from src.infrastructure.database.config import get_db, SessionLocal
 from src.infrastructure.database.models import VagaModel, CandidaturaModel, UsuarioModel
 from src.adapters.api.notificacoes_router import criar_notificacao
 from src.adapters.api.dependencies import get_current_user, get_current_candidato, get_current_empresa
+from src.infrastructure.email.email_service import EmailService
 
 logger = logging.getLogger("rh_api")
 router = APIRouter(prefix="/api/candidaturas", tags=["Candidaturas"])
 
 storage_service = StorageService()
 ai_screener = GeminiScreenerAdapter()
+email_service = EmailService()
 
 
 def get_candidaturas_use_case(db: Session = Depends(get_db)):
@@ -242,7 +244,13 @@ class AtualizarFaseRequest(BaseModel):
 
 
 @router.put("/{candidatura_id}/fase", response_model=Candidatura)
-def atualizar_fase(candidatura_id: int, request: AtualizarFaseRequest, current_user = Depends(get_current_empresa), use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case)):
+def atualizar_fase(
+    candidatura_id: int,
+    request: AtualizarFaseRequest,
+    background_tasks: BackgroundTasks,
+    current_user = Depends(get_current_empresa),
+    use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case)
+):
     candidatura = use_case.candidatura_repo.buscar_por_id(candidatura_id)
     vaga = use_case.vaga_repo.buscar_por_id(candidatura.vaga_id) if candidatura else None
     if not vaga or vaga.empresa_id != current_user.id:
@@ -254,4 +262,16 @@ def atualizar_fase(candidatura_id: int, request: AtualizarFaseRequest, current_u
         db = use_case.candidatura_repo.db
         criar_notificacao(db, atualizada.candidato_id, "Atualização de candidatura", f"A sua candidatura avançou para: {request.fase_atual}.")
         db.commit()
+
+        # Dispara e-mail transacional ao candidato notificando a nova fase
+        candidato = db.query(UsuarioModel).filter(UsuarioModel.id == atualizada.candidato_id).first()
+        if candidato and candidato.email:
+            background_tasks.add_task(
+                email_service.enviar_notificacao_candidatura,
+                candidato.email,
+                candidato.nome or "Candidato",
+                vaga.titulo,
+                request.fase_atual
+            )
+
     return atualizada

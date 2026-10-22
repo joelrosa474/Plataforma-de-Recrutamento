@@ -51,3 +51,8 @@ class JWTService:
             return int(user_id), str(pwh)
         except JWTError:
             raise ValueError("O token de recuperação é inválido ou já expirou.")
+
+    @staticmethod
+    def decodificar_token(token: str) -> dict:
+        """Decodifica e valida a assinatura e expiração de um token JWT."""
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

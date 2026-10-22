@@ -53,8 +53,6 @@ O frontend abre em `http://localhost:3000` e a API em `http://localhost:8000`.
 - não versionar `.env` real nem segredos em repositório
 - manter `ADMIN_EMAILS` limitado a contas confiáveis
 
-## Verificações
-
 ```powershell
 cd webapp
 & 'C:\Program Files\nodejs\npm.cmd' run build
@@ -62,3 +60,39 @@ cd webapp
 cd ..\backend
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## Migrações de Base de Dados (Alembic)
+
+Para aplicar ou gerar alterações no schema da base de dados (SQLite ou PostgreSQL):
+
+```powershell
+cd backend
+# Aplicar migrações pendentes até a versão mais recente
+.\.venv\Scripts\alembic.exe upgrade head
+
+# Criar nova migração automaticamente após alterar models.py
+.\.venv\Scripts\alembic.exe revision --autogenerate -m "nome_da_alteracao"
+```
+
+## Execução com Docker (Opcional)
+
+Para rodar todo o ecossistema (Backend + Frontend) em contêineres:
+
+```bash
+docker compose up --build
+```
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8000`
+- Documentação interativa Swagger: `http://localhost:8000/docs`
+
+## Integração Contínua (CI/CD)
+
+O repositório possui automação via **GitHub Actions** em `.github/workflows/ci.yml`.
+A cada `push` ou `pull request`, a esteira valida:
+1. Instalação e execução de **todos os testes unitários/integração** do backend no Python 3.12.
+2. Checagem de tipagem TypeScript e compilação do build de produção do Next.js.
+
+## Guia de Deploy em Produção
+
+Para instruções detalhadas de publicação com **Vercel** (frontend), **Render / Railway** (backend com PostgreSQL) e **Cloudflare**, consulte o guia completo em [DEPLOY.md](file:///c:/Users/LENOVO/Desktop/Plataforma%20de%20recrutamento%20RH/DEPLOY.md).

@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List, Literal, Optional
-from fastapi import APIRouter, HTTPException, Depends, Response
+from fastapi import APIRouter, HTTPException, Depends, Response, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy.orm import Session
@@ -15,10 +15,12 @@ from src.infrastructure.security.hasher import Hasher
 from src.infrastructure.security.jwt_service import JWTService
 from src.infrastructure.security.rate_limiter import AuthRateLimiter
 from src.infrastructure.database.models import VagaModel, CandidaturaModel
+from src.infrastructure.email.email_service import EmailService
 
 logger = logging.getLogger("rh_api")
 router = APIRouter(prefix="/api/auth", tags=["Autenticação"])
 RATE_LIMITER = AuthRateLimiter(max_attempts=5, window_seconds=60)
+email_service = EmailService()
 
 
 def get_auth_use_case(db: Session = Depends(get_db)):
@@ -159,8 +161,12 @@ def logout(response: Response):
 
 
 @router.post("/recuperar-senha")
-def solicitar_recuperacao_senha(request: RecuperarSenhaRequest, db: Session = Depends(get_db)):
-    """Gera token temporário e assinado para recuperação de palavra-passe."""
+def solicitar_recuperacao_senha(
+    request: RecuperarSenhaRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Gera token temporário e assinado para recuperação de palavra-passe e despacha e-mail transacional."""
     repo = UsuarioRepositorySQLAlchemy(db)
     user = repo.buscar_por_email(request.email.strip().lower())
     
@@ -172,6 +178,17 @@ def solicitar_recuperacao_senha(request: RecuperarSenhaRequest, db: Session = De
 
     token = JWTService.criar_token_recuperacao_senha(user.id, user.senha_hash or "")
     logger.info(f"Token de recuperação gerado para {user.email}")
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    reset_link = f"{frontend_url}/auth?mode=reset&token={token}"
+
+    # Dispara e-mail em background sem bloquear o retorno HTTP
+    background_tasks.add_task(
+        email_service.enviar_recuperacao_senha,
+        user.email,
+        user.nome,
+        reset_link
+    )
 
     payload = {"message": msg}
     # Em ambiente de desenvolvimento disponibiliza o token para testes locais

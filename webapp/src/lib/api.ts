@@ -34,12 +34,49 @@ export type ApiApplication = {
 };
 
 export type JobPage = { items: ApiJob[]; total: number; pagina: number; tamanho: number };
-export type AdminSummary = { usuarios: number; empresas: number; candidatos: number; vagas: number; candidaturas: number };
+export type MetricItem = { label: string; total: number };
+
+export type AdminSummary = {
+  usuarios: number;
+  empresas: number;
+  candidatos: number;
+  vagas: number;
+  candidaturas: number;
+  triagens_ia_total?: number;
+  media_match_score?: number;
+  taxa_triagem_ia?: number;
+  compatibilidade_alta?: number;
+  compatibilidade_media?: number;
+  compatibilidade_baixa?: number;
+  vagas_abertas?: number;
+  vagas_pausadas?: number;
+  vagas_fechadas?: number;
+  vagas_por_modalidade?: MetricItem[];
+  top_areas?: MetricItem[];
+  candidaturas_por_fase?: MetricItem[];
+  novas_vagas_7d?: number;
+  novas_candidaturas_7d?: number;
+};
+export type AdminJob = {
+  id: number;
+  empresa_id?: number | null;
+  empresa_nome?: string | null;
+  empresa_email?: string | null;
+  titulo: string;
+  descricao: string;
+  status: "Aberta" | "Fechada" | "Pausada";
+  requisitos: string[];
+  localizacao?: string | null;
+  modalidade?: string | null;
+  area?: string | null;
+  data_criacao?: string | null;
+  total_candidaturas: number;
+};
 export type Notification = { id: number; titulo: string; mensagem: string; lida: boolean; data_criacao: string };
 
 export type SessionUser = { id: number; nome: string; email: string; tipo_perfil: string; localizacao?: string | null; experiencia?: string | null; competencias?: string[]; linkedin_url?: string | null; github_url?: string | null };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const options: RequestInit = {
@@ -118,11 +155,33 @@ export const api = {
   deleteAccount: (senha_atual: string, token?: string) => request<void>("/api/auth/me", { method: "DELETE", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ senha_atual }) }),
   adminSummary: (token?: string) => request<AdminSummary>("/api/admin/resumo", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   adminUsers: (token?: string) => request<SessionUser[]>("/api/admin/usuarios", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-  adminJobs: (token?: string) => request<ApiJob[]>("/api/admin/vagas", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-  updateAdminJobStatus: (id: number, status: ApiJob["status"], token?: string) => request<ApiJob>(`/api/admin/vagas/${id}/status`, { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ status }) }),
+  updateAdminUserRole: (id: number, tipo_perfil: string, token?: string) =>
+    request<SessionUser>(`/api/admin/usuarios/${id}/perfil`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ tipo_perfil }),
+    }),
+  deleteAdminUser: (id: number, token?: string) =>
+    request<void>(`/api/admin/usuarios/${id}`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+  adminJobs: (token?: string) => request<AdminJob[]>("/api/admin/vagas", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  updateAdminJobStatus: (id: number, status: AdminJob["status"], token?: string) =>
+    request<AdminJob>(`/api/admin/vagas/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ status }),
+    }),
+  deleteAdminJob: (id: number, token?: string) =>
+    request<void>(`/api/admin/vagas/${id}`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
   notifications: (token?: string) => request<Notification[]>("/api/notificacoes/", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   readNotification: (id: number, token?: string) => request<Notification>(`/api/notificacoes/${id}/lida`, { method: "PUT", headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   readAllNotifications: (token?: string) => request<void>("/api/notificacoes/ler-todas", { method: "PUT", headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  notificationsStreamUrl: (token?: string) => `${API_URL}/api/notificacoes/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`,
 };
 
 export function getSession(): { token: string; user: SessionUser } | null {
