@@ -17,6 +17,9 @@ Todos os diagramas foram modelados utilizando a sintaxe **Mermaid**, sendo rende
 7. [Diagrama 7: Arquitetura de Notificações em Tempo Real (SSE - Server-Sent Events)](#7-arquitetura-de-notificações-em-tempo-real-sse)
 8. [Diagrama 8: Pipeline de Integração Contínua e Deploy (CI/CD)](#8-pipeline-de-integração-contínua-e-deploy-cicd)
 9. [Diagrama 9: Mapa de Navegação e Responsividade da Interface (Frontend)](#9-mapa-de-navegação-e-rotas-frontend)
+10. [Diagrama 10: Diagrama de Classes UML (Clean Architecture)](#10-diagrama-de-classes-uml)
+11. [Diagrama 11: Diagrama de Casos de Uso (Atores & Funcionalidades)](#11-diagrama-de-casos-de-uso)
+12. [Diagrama 12: Diagramas de Atividades (Processos de Negócio)](#12-diagramas-de-atividades)
 
 ---
 
@@ -438,6 +441,356 @@ graph TD
 
     A_Dash <--> A_Users
     A_Dash <--> A_Jobs
+```
+
+---
+
+## 10. Diagrama de Classes UML
+
+Modela a estrutura orientada a objetos do backend estruturada segundo os princípios da **Clean Architecture** (Arquitetura Limpa), dividida em:
+- **Entidades de Domínio (`Domain`):** Modelos puros e desacoplados de frameworks externos.
+- **Portas / Interfaces Contratuais (`Ports`):** Contratos de repositórios, serviços de IA e e-mail.
+- **Casos de Uso (`Use Cases`):** Orquestração dos fluxos de negócio.
+- **Adaptadores Concretos (`Adapters`):** Implementações em SQLAlchemy, Google Gemini, Resend e FastAPI.
+
+```mermaid
+classDiagram
+    direction TB
+
+    %% Pacote de Domínio
+    class Usuario {
+        +int id
+        +string nome
+        +string email
+        +string senha_hash
+        +string tipo_perfil
+        +string localizacao
+        +string experiencia
+        +List~string~ competencias
+        +string linkedin_url
+        +string github_url
+        +datetime data_criacao
+        +verificar_senha(senha_pura: str) bool
+        +is_administrador() bool
+        +is_empresa() bool
+        +is_candidato() bool
+    }
+
+    class Vaga {
+        +int id
+        +int empresa_id
+        +string titulo
+        +string descricao
+        +string status
+        +List~string~ requisitos
+        +string localizacao
+        +string modalidade
+        +string area
+        +datetime data_criacao
+        +pausar() void
+        +fechar() void
+        +reabrir() void
+        +is_aberta() bool
+    }
+
+    class Candidatura {
+        +int id
+        +int vaga_id
+        +int candidato_id
+        +string fase_atual
+        +float match_score
+        +string feedback_ia
+        +string curriculo_path
+        +string curriculo_nome
+        +datetime data_aplicacao
+        +avancar_fase(nova_fase: str) void
+        +definir_resultado_ia(score: float, parecer: str) void
+    }
+
+    class Notificacao {
+        +int id
+        +int usuario_id
+        +string titulo
+        +string mensagem
+        +bool lida
+        +datetime data_criacao
+        +marcar_como_lida() void
+    }
+
+    %% Interfaces / Portas
+    class UsuarioRepositoryPort {
+        <<interface>>
+        +obter_por_id(id: int) Usuario
+        +obter_por_email(email: str) Usuario
+        +salvar(usuario: Usuario) Usuario
+        +listar_todos() List~Usuario~
+        +eliminar(id: int) void
+    }
+
+    class VagaRepositoryPort {
+        <<interface>>
+        +obter_por_id(id: int) Vaga
+        +listar(filtros: dict) List~Vaga~
+        +listar_por_empresa(empresa_id: int) List~Vaga~
+        +salvar(vaga: Vaga) Vaga
+        +eliminar(id: int) void
+    }
+
+    class CandidaturaRepositoryPort {
+        <<interface>>
+        +obter_por_id(id: int) Candidatura
+        +listar_por_vaga(vaga_id: int) List~Candidatura~
+        +listar_por_candidato(candidato_id: int) List~Candidatura~
+        +salvar(candidatura: Candidatura) Candidatura
+    }
+
+    class AIScreenerPort {
+        <<interface>>
+        +analisar_curriculo(requisitos: List~str~, conteudo_cv: str) dict
+    }
+
+    class EmailServicePort {
+        <<interface>>
+        +enviar_recuperacao_senha(destinatario: str, token: str) void
+        +enviar_atualizacao_fase(destinatario: str, vaga_titulo: str, nova_fase: str) void
+    }
+
+    %% Casos de Uso
+    class AutenticacaoUseCase {
+        -UsuarioRepositoryPort usuario_repo
+        -EmailServicePort email_service
+        +registrar(dados: dict) Usuario
+        +login(email: str, senha: str) dict
+        +solicitar_recuperacao(email: str) dict
+        +redefinir_senha(token: str, nova_senha: str) dict
+    }
+
+    class GerenciarVagasUseCase {
+        -VagaRepositoryPort vaga_repo
+        +criar_vaga(empresa_id: int, dados: dict) Vaga
+        +atualizar_vaga(vaga_id: int, dados: dict) Vaga
+        +alterar_status(vaga_id: int, status: str) Vaga
+        +excluir_vaga(vaga_id: int) void
+    }
+
+    class RealizarCandidaturaUseCase {
+        -CandidaturaRepositoryPort candidatura_repo
+        -VagaRepositoryPort vaga_repo
+        -AIScreenerPort ai_screener
+        -EmailServicePort email_service
+        +submeter_candidatura(candidato_id: int, vaga_id: int, pdf_bytes: bytes) Candidatura
+        +avancar_candidato(candidatura_id: int, nova_fase: str) Candidatura
+    }
+
+    %% Relacionamentos de Domínio
+    Usuario "1" --> "*" Vaga : publica
+    Usuario "1" --> "*" Candidatura : submete
+    Usuario "1" --> "*" Notificacao : recebe
+    Vaga "1" --> "*" Candidatura : recebe
+
+    %% Relacionamentos de Casos de Uso com Portas
+    AutenticacaoUseCase ..> UsuarioRepositoryPort : usa
+    AutenticacaoUseCase ..> EmailServicePort : usa
+    GerenciarVagasUseCase ..> VagaRepositoryPort : usa
+    RealizarCandidaturaUseCase ..> CandidaturaRepositoryPort : usa
+    RealizarCandidaturaUseCase ..> VagaRepositoryPort : usa
+    RealizarCandidaturaUseCase ..> AIScreenerPort : usa
+    RealizarCandidaturaUseCase ..> EmailServicePort : usa
+```
+
+---
+
+## 11. Diagrama de Casos de Uso
+
+Apresenta as funcionalidades agrupadas por perfil de acesso (Atores), ilustrando as dependências e o papel do assistente de inteligência artificial na triagem.
+
+```mermaid
+flowchart LR
+    %% Atores
+    Candidato((Candidato))
+    Empresa((Empresa / Recrutador))
+    Admin((Administrador))
+    GeminiIA((Google Gemini 1.5))
+
+    subgraph Sistema ["Plataforma de Recrutamento É Salú"]
+        %% Casos de Uso - Autenticação
+        UC_Reg["Criar Conta com Confirmação"]
+        UC_Login["Iniciar Sessão (JWT)"]
+        UC_Forgot["Recuperar Senha por E-mail"]
+        
+        %% Casos de Uso - Candidato
+        UC_Search["Pesquisar & Filtrar Vagas"]
+        UC_Apply["Candidatar-se (Upload PDF)"]
+        UC_Track["Acompanhar Status & Match IA"]
+        UC_CandProfile["Gerir Perfil Profissional"]
+        
+        %% Casos de Uso - Empresa
+        UC_PostJob["Publicar / Editar Vaga"]
+        UC_ManageJobs["Pausar / Fechar Vagas"]
+        UC_ViewATS["Aceder ao Funil ATS de Candidatos"]
+        UC_ViewFeedback["Consultar Parecer Técnico da IA"]
+        UC_DownloadCV["Descarregar Currículo PDF"]
+        UC_ChangePhase["Mover Fase (Triagem / Entrevista / Contratado)"]
+        UC_CompProfile["Gerir Perfil Institucional"]
+        
+        %% Casos de Uso - IA
+        UC_ExtractPDF["Extrair Texto do Currículo"]
+        UC_ScoreMatch["Calcular Match Score (0-100%)"]
+        UC_GenFeedback["Gerar Parecer Técnico"]
+        
+        %% Casos de Uso - Administrador
+        UC_DashKPI["Visualizar Métricas Globais & IA"]
+        UC_ModUsers["Moderar Contas & Alterar Perfis"]
+        UC_ModJobs["Moderar & Auditar Vagas"]
+        
+        %% Notificações
+        UC_SSE["Receber Notificações em Tempo Real (SSE)"]
+    end
+
+    %% Relações Candidato
+    Candidato --> UC_Reg
+    Candidato --> UC_Login
+    Candidato --> UC_Forgot
+    Candidato --> UC_Search
+    Candidato --> UC_Apply
+    Candidato --> UC_Track
+    Candidato --> UC_CandProfile
+    Candidato --> UC_SSE
+
+    %% Relações Empresa
+    Empresa --> UC_Login
+    Empresa --> UC_PostJob
+    Empresa --> UC_ManageJobs
+    Empresa --> UC_ViewATS
+    Empresa --> UC_ViewFeedback
+    Empresa --> UC_DownloadCV
+    Empresa --> UC_ChangePhase
+    Empresa --> UC_CompProfile
+    Empresa --> UC_SSE
+
+    %% Relações Admin
+    Admin --> UC_Login
+    Admin --> UC_DashKPI
+    Admin --> UC_ModUsers
+    Admin --> UC_ModJobs
+
+    %% Inclusões / Relações da IA
+    UC_Apply -.->|<<include>>| UC_ExtractPDF
+    UC_ExtractPDF -.->|<<include>>| UC_ScoreMatch
+    UC_ScoreMatch -.->|<<include>>| UC_GenFeedback
+    GeminiIA --- UC_ScoreMatch
+    GeminiIA --- UC_GenFeedback
+
+    %% Relações de dependência
+    UC_ChangePhase -.->|<<include>>| UC_SSE
+```
+
+---
+
+## 12. Diagramas de Atividades
+
+Modelam o fluxo lógico e as decisões operacionais dos principais processos de negócio do sistema.
+
+### 12.1. Atividade: Processo de Candidatura e Triagem Automática
+
+Representa o workflow com faixas de responsabilidade (*swimlanes*) desde a submissão do currículo até a disponibilização do score no ATS.
+
+```mermaid
+flowchart TD
+    Start([Início]) --> SearchJob[Candidato busca vaga no portal]
+    SearchJob --> SelectJob[Seleciona a oportunidade de interesse]
+    SelectJob --> CheckAuth{Está logado como Candidato?}
+
+    CheckAuth -- Não --> ShowLogin[Exibe tela de login / registro]
+    ShowLogin --> CheckAuth
+
+    CheckAuth -- Sim --> OpenModal[Abre modal de candidatura]
+    OpenModal --> UploadPDF[Anexa arquivo do currículo em PDF]
+    UploadPDF --> ValidatePDF{Arquivo é PDF válido?}
+
+    ValidatePDF -- Não --> ShowError[Exibe alerta de formato inválido]
+    ShowError --> UploadPDF
+
+    ValidatePDF -- Sim --> SubmitApp[Dispara POST /api/candidaturas]
+    SubmitApp --> SaveDB[API salva candidatura com fase 'Triagem']
+    SaveDB --> AckClient[Retorna 201 Created para o candidato]
+    AckClient --> SuccessToast[Candidato recebe confirmação na tela]
+
+    %% Processamento em Background
+    SaveDB --> ExtractText[Extrai texto do PDF com pypdf]
+    ExtractText --> CallGemini[Envia requisitos da vaga e texto à API do Gemini]
+    CallGemini --> ParseAIResponse{Resposta da IA válida?}
+
+    ParseAIResponse -- Sim --> UpdateScore[Grava match_score e parecer técnico no banco]
+    ParseAIResponse -- Não --> FallbackManual[Grava flag para revisão humana]
+
+    UpdateScore --> NotifyCompany[Gera notificação SSE para o recrutador]
+    FallbackManual --> NotifyCompany
+    NotifyCompany --> End([Fim do Processo de Triagem])
+```
+
+---
+
+### 12.2. Atividade: Publicação e Gestão de Vagas pela Empresa
+
+Ilustra o ciclo operacional do recrutador ao cadastrar, gerenciar o status e encerrar oportunidades.
+
+```mermaid
+flowchart TD
+    Start([Início]) --> EnterDashboard[Recrutador acessa o Painel da Empresa]
+    EnterDashboard --> ClickNewJob[Clica em 'Publicar Nova Vaga']
+    ClickNewJob --> FillForm[Preenche Título, Área, Modalidade, Localização, Descrição e Requisitos]
+    FillForm --> ValidateFields{Campos obrigatórios preenchidos?}
+
+    ValidateFields -- Não --> ShowFormError[Exibe mensagens de validação]
+    ShowFormError --> FillForm
+
+    ValidateFields -- Sim --> SaveJob[Envia formulário à API]
+    SaveJob --> SetStatusOpen[Vaga salva com status 'Aberta']
+    SetStatusOpen --> AvailableToPublic[Vaga imediatamente visível aos candidatos]
+
+    AvailableToPublic --> MonitorApplications[Recrutador monitora candidatos no ATS]
+    MonitorApplications --> DecideAction{Deseja alterar status da vaga?}
+
+    DecideAction -- Pausar --> PauseJob[Status alterado para 'Pausada' - Vaga oculta para novos inscritos]
+    PauseJob --> DecideAction
+
+    DecideAction -- Reabrir --> ReopenJob[Status retorna para 'Aberta']
+    ReopenJob --> DecideAction
+
+    DecideAction -- Encerrar --> CloseJob[Status alterado para 'Fechada']
+    DecideAction -- Excluir --> DeleteJob[Vaga e candidaturas removidas do sistema]
+
+    CloseJob --> End([Processo Concluído])
+    DeleteJob --> End
+```
+
+---
+
+### 12.3. Atividade: Transição de Fase no ATS e Comunicação Multicanal
+
+Demonstra o fluxo acionado quando um recrutador move um candidato no funil ATS (ex: de *Triagem* para *Entrevista* ou *Contratado*).
+
+```mermaid
+flowchart TD
+    Start([Início]) --> ViewATS[Recrutador abre funil ATS da vaga]
+    ViewATS --> ReviewCandidate[Analisa perfil, CV em PDF e parecer da IA]
+    ReviewCandidate --> SelectNewPhase[Seleciona nova fase: Entrevista, Contratado ou Reprovado]
+    SelectNewPhase --> ConfirmChange[Dispara PATCH /api/candidaturas/{id}/fase]
+
+    ConfirmChange --> UpdateDB[API atualiza fase_atual na base de dados]
+    UpdateDB --> CreateNotification[Cria registro na tabela NOTIFICACOES]
+
+    %% Disparos Paralelos
+    CreateNotification --> TriggerSSE[Broadcaster SSE envia evento em tempo real]
+    CreateNotification --> TriggerEmail[EmailService envia e-mail transacional]
+
+    TriggerSSE --> ClientToast[Candidato visualiza Toast flutuante instantâneo]
+    TriggerEmail --> ClientInbox[Candidato recebe e-mail na sua caixa postal]
+
+    ClientToast --> SyncBoard[Interface ATS da empresa atualiza status]
+    ClientInbox --> SyncBoard
+    SyncBoard --> End([Fim do Ciclo de Transição])
 ```
 
 ---
