@@ -1,4 +1,13 @@
-# Plataforma de recrutamento RH
+# 🇦🇴 É Salú — Plataforma de Recrutamento RH Inteligente
+
+Plataforma moderna de atração e gestão de talentos para Angola, equipada com triagem automática de currículos por Inteligência Artificial (**Google Gemini**), notificações em tempo real (**SSE**) e painel **ATS** para empresas e administradores.
+
+- 🌐 **Frontend em Produção (Vercel):** [https://plataforma-de-recrutamento-rouge.vercel.app](https://plataforma-de-recrutamento-rouge.vercel.app)
+- ⚙️ **Backend API em Produção (Render):** [https://rh-backend-api-ulcu.onrender.com](https://rh-backend-api-ulcu.onrender.com)
+- 📘 **Documentação Oficial Completa:** Consulte [DOCUMENTACAO.md](DOCUMENTACAO.md) para a arquitetura, diagramas Mermaid, modelo de dados e referência da API.
+- 🚀 **Guia de Implantação e Deploy:** Consulte [DEPLOY.md](DEPLOY.md).
+
+---
 
 ## Pré-requisitos
 
