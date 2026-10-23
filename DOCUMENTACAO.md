@@ -2,6 +2,8 @@
 
 Bem-vindo à documentação técnica e funcional da **É Salú**, uma plataforma moderna de recrutamento e seleção orientada por Inteligência Artificial (Google Gemini), concebida para conectar candidatos qualificados às melhores empresas de Angola.
 
+> 📊 **Livro Completo de Diagramas:** Para consultar todos os 9 diagramas de arquitetura, banco de dados, fluxos de autenticação, triagem de IA e sequências, aceda a [**`DIAGRAMAS.md`**](DIAGRAMAS.md).
+
 ---
 
 ## 1. Visão Geral e Objetivos do Produto

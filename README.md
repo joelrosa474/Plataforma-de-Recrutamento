@@ -4,7 +4,8 @@ Plataforma moderna de atração e gestão de talentos para Angola, equipada com 
 
 - 🌐 **Frontend em Produção (Vercel):** [https://plataforma-de-recrutamento-rouge.vercel.app](https://plataforma-de-recrutamento-rouge.vercel.app)
 - ⚙️ **Backend API em Produção (Render):** [https://rh-backend-api-ulcu.onrender.com](https://rh-backend-api-ulcu.onrender.com)
-- 📘 **Documentação Oficial Completa:** Consulte [DOCUMENTACAO.md](DOCUMENTACAO.md) para a arquitetura, diagramas Mermaid, modelo de dados e referência da API.
+- 📘 **Documentação Oficial Completa:** Consulte [DOCUMENTACAO.md](DOCUMENTACAO.md) para a arquitetura, modelo de dados e referência da API.
+- 📊 **Livro de Diagramas Técnicos:** Consulte [DIAGRAMAS.md](DIAGRAMAS.md) com todos os 9 diagramas Mermaid de fluxo, banco de dados e arquitetura.
 - 🚀 **Guia de Implantação e Deploy:** Consulte [DEPLOY.md](DEPLOY.md).
 
 ---
