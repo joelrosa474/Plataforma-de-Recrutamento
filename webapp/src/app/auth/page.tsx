@@ -81,6 +81,12 @@ function AuthPageContent() {
       }
 
       if (mode === "register") {
+        const confirmarSenha = String(data.get("confirmar_senha") || "");
+        if (senha !== confirmarSenha) {
+          setError("As palavras-passe não coincidem. Por favor, confirme a sua senha.");
+          return;
+        }
+
         const passwordError = validatePassword(senha);
         if (passwordError) {
           setError(passwordError);
@@ -175,7 +181,26 @@ function AuthPageContent() {
           {(mode === "login" || mode === "register") && (
             <div>
               <label className="block text-sm font-medium text-slate-700">Palavra-passe</label>
-              <input required type="password" name="senha" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none" />
+              <input
+                required
+                type="password"
+                name="senha"
+                placeholder={mode === "register" ? "Mínimo 8 caracteres" : "••••••••"}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {mode === "register" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Confirmar palavra-passe</label>
+              <input
+                required
+                type="password"
+                name="confirmar_senha"
+                placeholder="Repita a palavra-passe"
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none"
+              />
             </div>
           )}
 
