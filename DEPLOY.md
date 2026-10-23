@@ -1,10 +1,10 @@
 # 🚀 Guia de Implantação (Deploy em Produção)
 
 Este guia explica passo a passo como colocar a **Plataforma de Recrutamento RH** no ar gratuitamente ou com custo mínimo usando a arquitetura recomendada:
-- **Frontend**: [Vercel](https://vercel.com) (Next.js) ✅ **Publicado em: https://plataforma-de-recrutamento-rouge.vercel.app**
-- **Backend**: [Render](https://render.com) (FastAPI + Docker) — recomendado para SSE e background tasks
-- **Base de Dados**: PostgreSQL Gerenciado (Render — incluído no `render.yaml`)
-- **Domínio & DNS**: [Cloudflare](https://cloudflare.com) (Opcional para domínio customizado e SSL)
+- **Frontend**: [Vercel](https://vercel.com) (Next.js) ✅ **https://plataforma-de-recrutamento-rouge.vercel.app**
+- **Backend**: [Render](https://render.com) (FastAPI + PostgreSQL) ✅ **https://rh-backend-api-ulcu.onrender.com**
+- **Base de Dados**: PostgreSQL Gerenciado no Render ✅ Conectado
+- **Status do Backend**: `{"status":"ok","database":"connected"}`
 
 > **Porquê Render e não Vercel para o backend?**
 > O backend usa **Server-Sent Events (SSE)** para notificações em tempo real e **background workers**. A Vercel executa funções serverless com tempo limite de 30s, incompatível com ligações de longa duração. O Render mantém o servidor ativo continuamente.
