@@ -92,21 +92,21 @@ export default function CandidateApplicationsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-950">Minhas Candidaturas</h1>
-        <p className="mt-1 text-slate-600">Acompanhe a evolução do seu perfil em cada vaga submetida.</p>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 space-y-6 sm:space-y-8">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">Minhas Candidaturas</h1>
+        <p className="mt-1 text-sm sm:text-base text-slate-600">Acompanhe a evolução do seu perfil em cada vaga submetida.</p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         {applications.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-8 sm:p-12 text-center">
             <FileText className="mx-auto h-10 w-10 text-slate-300" />
             <p className="mt-3 text-base font-semibold text-slate-700">Ainda não realizou nenhuma candidatura</p>
             <p className="mt-1 text-sm text-slate-500">Explore as vagas em aberto e envie o seu currículo.</p>
             <Link
               href="/candidate/dashboard"
-              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700 transition"
             >
               Explorar vagas abertas <ArrowRight className="h-4 w-4" />
             </Link>
@@ -120,7 +120,7 @@ export default function CandidateApplicationsPage() {
               return (
                 <article
                   key={app.id}
-                  className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 transition"
+                  className="flex flex-col gap-4 p-4 sm:p-6 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 transition"
                 >
                   <div className="space-y-1">
                     <h2 className="text-lg font-bold text-slate-950">{job?.titulo ?? `Vaga #${app.vaga_id}`}</h2>

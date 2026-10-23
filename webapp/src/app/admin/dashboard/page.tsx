@@ -229,7 +229,7 @@ export default function AdminDashboardPage() {
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
               <div>

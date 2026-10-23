@@ -112,10 +112,10 @@ export function NotificationsPanel() {
         </button>
 
         {open && (
-          <section className="absolute right-0 z-50 mt-2 w-84 sm:w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-md shadow-2xl transition-all duration-200 animate-in fade-in slide-in-from-top-2">
+          <section className="absolute -right-2 sm:right-0 z-50 mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-md shadow-2xl transition-all duration-200 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-slate-900">Notificações</h2>
+                <h2 className="font-bold text-slate-900 text-sm sm:text-base">Notificações</h2>
                 <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">
                   {unreadCount} não lidas
                 </span>
@@ -178,7 +178,7 @@ export function NotificationsPanel() {
         <aside
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex max-w-sm sm:max-w-md items-start gap-3 rounded-2xl border border-sky-100 bg-white/95 backdrop-blur-md p-4 shadow-2xl ring-1 ring-slate-900/5 transition-all animate-in slide-in-from-bottom-5 duration-300"
+          className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 max-w-md z-50 flex items-start gap-3 rounded-2xl border border-sky-100 bg-white/95 backdrop-blur-md p-4 shadow-2xl ring-1 ring-slate-900/5 transition-all animate-in slide-in-from-bottom-5 duration-300"
         >
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-600/20">
             <Sparkles className="h-5 w-5" />

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Briefcase, FileText, User, LogOut } from "lucide-react";
+import { Briefcase, FileText, User, LogOut, Menu, X } from "lucide-react";
 import { getSession, SessionUser } from "@/lib/api";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
 
@@ -11,6 +11,7 @@ export function CandidateHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const session = getSession();
@@ -19,8 +20,14 @@ export function CandidateHeader() {
     }
   }, []);
 
+  // Fecha o menu móvel ao trocar de rota
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   function handleLogout() {
     window.localStorage.removeItem("rh-session");
+    setMobileMenuOpen(false);
     router.push("/");
   }
 
@@ -31,18 +38,29 @@ export function CandidateHeader() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
-      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Página inicial">
-            <span className="flex h-10 w-10 items-end justify-center gap-1 rounded-lg bg-sky-50 px-2 py-2">
-              <span className="h-6 w-2 rounded-full bg-sky-600" />
-              <span className="h-8 w-2 rounded-full bg-sky-500" />
-              <span className="h-5 w-2 rounded-full bg-sky-400" />
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
+      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-4 sm:gap-8">
+          {/* Botão Hambúrguer Mobile */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors md:hidden focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3" aria-label="Página inicial">
+            <span className="flex h-9 w-9 sm:h-10 sm:w-10 items-end justify-center gap-1 rounded-lg bg-sky-50 px-1.5 py-1.5 sm:px-2 sm:py-2">
+              <span className="h-5 sm:h-6 w-1.5 sm:w-2 rounded-full bg-sky-600" />
+              <span className="h-7 sm:h-8 w-1.5 sm:w-2 rounded-full bg-sky-500" />
+              <span className="h-4 sm:h-5 w-1.5 sm:w-2 rounded-full bg-sky-400" />
             </span>
-            <span className="text-2xl font-bold tracking-tight text-slate-950">É Salú</span>
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950">É Salú</span>
           </Link>
 
+          {/* Navegação Desktop */}
           <nav className="hidden items-center gap-1 md:flex">
             {navItems.map((item) => {
               const active = pathname === item.href;
@@ -65,7 +83,7 @@ export function CandidateHeader() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <NotificationsPanel />
 
           {user && (
@@ -83,14 +101,64 @@ export function CandidateHeader() {
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-red-50 hover:text-red-700 hover:border-red-200"
             title="Terminar sessão"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sair</span>
+            <span>Sair</span>
           </button>
         </div>
       </div>
+
+      {/* Menu Drawer Mobile para Candidatos */}
+      {mobileMenuOpen && (
+        <div className="border-t border-slate-200 bg-white px-4 py-4 shadow-xl md:hidden transition-all duration-200 animate-in slide-in-from-top-2">
+          {user && (
+            <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-600 text-sm font-bold text-white uppercase">
+                {user.nome ? user.nome.charAt(0) : "C"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900 truncate">{user.nome}</p>
+                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+              </div>
+            </div>
+          )}
+
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const active = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors ${
+                    active
+                      ? "bg-sky-50 text-sky-700 font-bold"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${active ? "text-sky-600" : "text-slate-400"}`} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50 transition"
+            >
+              <LogOut className="h-5 w-5" />
+              Sair da Conta
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

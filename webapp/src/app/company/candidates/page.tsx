@@ -132,8 +132,8 @@ export default function CompanyCandidatesPage() {
               const isFeedbackOpen = expandedFeedbackId === app.id;
 
               return (
-                <article key={app.id} className="p-6 hover:bg-slate-50/50 transition">
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <article key={app.id} className="p-4 sm:p-6 hover:bg-slate-50/50 transition">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-bold text-slate-950">

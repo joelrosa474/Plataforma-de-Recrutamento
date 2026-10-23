@@ -52,19 +52,23 @@ export default function CandidateDashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8 space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 space-y-6 sm:space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md">
             <Sparkles className="h-3.5 w-3.5 text-sky-600" />
             Oportunidades em Aberto
           </span>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Encontre a vaga ideal para a sua carreira</h1>
-          <p className="mt-1 text-slate-600">Explore as ofertas das empresas mais dinâmicas e candidate-se com triagem inteligente.</p>
+          <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-slate-950">
+            Encontre a vaga ideal para a sua carreira
+          </h1>
+          <p className="mt-1 text-sm sm:text-base text-slate-600">
+            Explore as ofertas das empresas mais dinâmicas e candidate-se com triagem inteligente.
+          </p>
         </div>
         <Link
           href="/candidate/applications"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-sky-700"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-sky-700 w-full sm:w-auto"
         >
           <FileText className="h-4 w-4 text-sky-600" />
           Minhas Candidaturas
@@ -74,13 +78,14 @@ export default function CandidateDashboard() {
       {successMessage && (
         <div role="status" className="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm font-semibold text-emerald-800">
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
             <span>{successMessage}</span>
           </div>
           <button
             type="button"
             onClick={() => setSuccessMessage("")}
-            className="text-emerald-700 hover:text-emerald-900"
+            className="rounded-lg p-1 text-emerald-700 hover:bg-emerald-100 transition"
+            aria-label="Fechar"
           >
             <X className="h-4 w-4" />
           </button>
@@ -93,21 +98,22 @@ export default function CandidateDashboard() {
         </div>
       )}
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
-        <label className="relative md:col-span-2">
-          <Search className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
+      {/* Filtros de Busca Responsivos */}
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="relative sm:col-span-2 lg:col-span-2">
+          <Search className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cargo, competência ou palavra-chave…"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-3 pl-11 pr-4 text-base sm:text-sm outline-none transition focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500"
           />
         </label>
         <input
           value={localizacao}
           onChange={(e) => setLocalizacao(e.target.value)}
           placeholder="Localização (ex: Luanda)"
-          className="rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500"
+          className="rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3 text-base sm:text-sm outline-none transition focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500"
         />
         <div className="grid grid-cols-2 gap-2">
           <select
@@ -135,25 +141,26 @@ export default function CandidateDashboard() {
         </div>
       </div>
 
+      {/* Lista de Vagas */}
       {loading ? (
         <div className="py-16 text-center">
           <p className="text-sm font-medium text-slate-500">A carregar oportunidades…</p>
         </div>
       ) : jobs.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center">
           <BriefcaseBusiness className="mx-auto h-12 w-12 text-slate-300" />
           <h2 className="mt-4 text-base font-bold text-slate-800">Nenhuma vaga aberta encontrada</h2>
           <p className="mt-1 text-sm text-slate-500">Experimente alterar os termos da pesquisa ou os filtros de localização e modalidade.</p>
         </div>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {jobs.map((job) => (
             <article
               key={job.id}
-              className="flex min-h-80 flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md hover:border-sky-200"
+              className="flex min-h-80 flex-col rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm transition hover:shadow-md hover:border-sky-200"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-700 shrink-0">
                   <BriefcaseBusiness className="h-6 w-6" />
                 </div>
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
@@ -161,42 +168,39 @@ export default function CandidateDashboard() {
                 </span>
               </div>
 
-              <h2 className="mt-4 text-xl font-bold tracking-tight text-slate-950">{job.titulo}</h2>
-              <p className="mt-1 text-xs font-semibold text-sky-700">
-                {[job.area, job.localizacao, job.modalidade].filter(Boolean).join(" · ") || "Geral"}
+              <h2 className="mt-4 text-lg font-bold text-slate-950 line-clamp-1">{job.titulo}</h2>
+              <p className="mt-1 text-xs font-medium text-sky-700">
+                {[job.area, job.localizacao, job.modalidade].filter(Boolean).join(" · ")}
               </p>
 
-              <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{job.descricao}</p>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600 line-clamp-3 flex-1">{job.descricao}</p>
 
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {job.requisitos.slice(0, 4).map((r) => (
-                  <span key={r} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                    {r}
-                  </span>
-                ))}
-                {job.requisitos.length > 4 && (
-                  <span className="rounded-md bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500">
-                    +{job.requisitos.length - 4}
-                  </span>
-                )}
-              </div>
+              {job.requisitos.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                  {job.requisitos.slice(0, 3).map((item) => (
+                    <span key={item} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                      {item}
+                    </span>
+                  ))}
+                  {job.requisitos.length > 3 && (
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                      +{job.requisitos.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
 
-              <div className="mt-auto pt-6 flex items-center justify-between border-t border-slate-100">
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-900"
-                >
-                  Ver detalhes
-                </Link>
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400">
+                  {new Date(job.data_criacao).toLocaleDateString("pt-AO")}
+                </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelected(job);
-                    setError("");
-                  }}
-                  className="inline-flex items-center gap-1 text-sm font-bold text-sky-700 hover:text-sky-800"
+                  onClick={() => setSelected(job)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-sky-700"
                 >
-                  Candidatar-me <ArrowRight className="h-4 w-4" />
+                  Candidatar-me
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             </article>
@@ -204,13 +208,14 @@ export default function CandidateDashboard() {
         </div>
       )}
 
+      {/* Modal de Candidatura Totalmente Responsivo */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm px-4">
-          <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-7 shadow-2xl space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-5 sm:p-7 shadow-2xl space-y-6 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-sky-600">Submissão de Candidatura</span>
-                <h2 className="mt-1 text-2xl font-bold text-slate-950">{selected.titulo}</h2>
+                <h2 className="mt-1 text-xl sm:text-2xl font-bold text-slate-950">{selected.titulo}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {[selected.area, selected.localizacao, selected.modalidade].filter(Boolean).join(" · ")}
                 </p>
@@ -219,7 +224,7 @@ export default function CandidateDashboard() {
                 type="button"
                 onClick={() => setSelected(null)}
                 aria-label="Fechar"
-                className="rounded-lg p-1 text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -232,11 +237,11 @@ export default function CandidateDashboard() {
                   type="file"
                   accept="application/pdf,.pdf"
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setResume(e.target.files?.[0] ?? null)}
-                  className="mt-2 block w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer"
+                  className="mt-2 block w-full text-sm text-slate-600 file:mr-3 sm:file:mr-4 file:py-2.5 file:px-3 sm:file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer"
                 />
               </label>
               <p className="text-xs text-slate-500">
-                O seu currículo será armazenado de forma segura e avaliado pelo nosso assistente de IA Gemini para calcular a aderência com a vaga.
+                O seu currículo será avaliado pelo nosso assistente de IA Gemini para calcular a aderência com a vaga.
               </p>
             </div>
 
@@ -246,11 +251,11 @@ export default function CandidateDashboard() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="w-full sm:w-auto rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
               >
                 Cancelar
               </button>
@@ -258,7 +263,7 @@ export default function CandidateDashboard() {
                 type="button"
                 onClick={apply}
                 disabled={applying || !resume}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-sky-700 disabled:opacity-50 transition"
               >
                 {applying ? "A enviar e a analisar…" : "Enviar candidatura"}
               </button>
