@@ -32,6 +32,16 @@ email_service = EmailService()
 def carregar_analise_match(valor: Optional[str]) -> Optional[dict[str, Any]]:
     if not valor:
         return None
+
+
+def carregar_roteiro_entrevista(valor: Optional[str]) -> Optional[list[dict[str, Any]]]:
+    if not valor:
+        return None
+    try:
+        roteiro = json.loads(valor)
+        return roteiro if isinstance(roteiro, list) else None
+    except json.JSONDecodeError:
+        return None
     try:
         analise = json.loads(valor)
         return analise if isinstance(analise, dict) else None
@@ -105,6 +115,7 @@ class CandidaturaDetalhadaResponse(BaseModel):
     entrevista_data: Optional[datetime] = None
     entrevista_link: Optional[str] = None
     entrevista_notas: Optional[str] = None
+    roteiro_entrevista: Optional[list[dict[str, Any]]] = None
     tem_curriculo: bool = False
     data_aplicacao: datetime
     candidato: Optional[CandidatoResumo] = None
@@ -214,6 +225,7 @@ def listar_candidatos_da_vaga(
             entrevista_data=c.entrevista_data,
             entrevista_link=c.entrevista_link,
             entrevista_notas=c.entrevista_notas,
+            roteiro_entrevista=carregar_roteiro_entrevista(c.roteiro_entrevista),
             tem_curriculo=tem_curriculo,
             data_aplicacao=c.data_aplicacao,
             candidato=candidato_resumo
@@ -287,6 +299,10 @@ class AgendarEntrevistaRequest(BaseModel):
         return link
 
 
+class GuardarRoteiroEntrevistaRequest(BaseModel):
+    roteiro_entrevista: List[dict[str, Any]] = Field(min_length=1, max_length=8)
+
+
 @router.put("/{candidatura_id}/fase", response_model=Candidatura)
 def atualizar_fase(
     candidatura_id: int,
@@ -350,3 +366,26 @@ def agendar_entrevista(
     if candidato and candidato.email:
         background_tasks.add_task(email_service.enviar_convite_entrevista, candidato.email, candidato.nome or "Candidato", vaga.titulo, data_formatada, request.entrevista_link, request.entrevista_notas)
     return atualizada
+
+
+@router.post("/{candidatura_id}/roteiro-entrevista", response_model=Candidatura)
+def gerar_roteiro_entrevista(candidatura_id: int, current_user=Depends(get_current_empresa), use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case), db: Session = Depends(get_db)):
+    candidatura = use_case.candidatura_repo.buscar_por_id(candidatura_id)
+    vaga = use_case.vaga_repo.buscar_por_id(candidatura.vaga_id) if candidatura else None
+    if not vaga or vaga.empresa_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Candidatura não encontrada")
+    candidato = db.query(UsuarioModel).filter(UsuarioModel.id == candidatura.candidato_id).first()
+    perfil = f"Competências: {', '.join(candidato.get_competencias_list()) if candidato else 'não informado'}. Experiência: {candidato.experiencia if candidato else 'não informada'}."
+    analise = carregar_analise_match(db.query(CandidaturaModel.analise_match_ia).filter(CandidaturaModel.id == candidatura_id).scalar())
+    candidatura.roteiro_entrevista = ai_screener.gerar_roteiro_entrevista(vaga.descricao, vaga.requisitos, perfil, analise)
+    return use_case.candidatura_repo.salvar(candidatura)
+
+
+@router.put("/{candidatura_id}/roteiro-entrevista", response_model=Candidatura)
+def guardar_roteiro_entrevista(candidatura_id: int, request: GuardarRoteiroEntrevistaRequest, current_user=Depends(get_current_empresa), use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case)):
+    candidatura = use_case.candidatura_repo.buscar_por_id(candidatura_id)
+    vaga = use_case.vaga_repo.buscar_por_id(candidatura.vaga_id) if candidatura else None
+    if not vaga or vaga.empresa_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Candidatura não encontrada")
+    candidatura.roteiro_entrevista = request.roteiro_entrevista
+    return use_case.candidatura_repo.salvar(candidatura)

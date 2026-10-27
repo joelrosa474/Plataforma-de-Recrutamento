@@ -67,6 +67,7 @@ class CandidaturaModel(Base):
     entrevista_data = Column(DateTime, nullable=True)
     entrevista_link = Column(String, nullable=True)
     entrevista_notas = Column(Text, nullable=True)
+    roteiro_entrevista = Column(Text, nullable=True)
     data_aplicacao = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class NotificacaoModel(Base):

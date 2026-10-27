@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileDown, Sparkles, MapPin, Mail, Calendar, CalendarDays, FileText, CheckCircle, Clock, ChevronDown, ChevronUp, CircleAlert, Lightbulb } from "lucide-react";
+import { FileDown, Sparkles, MapPin, Mail, Calendar, CalendarDays, FileText, CheckCircle, Clock, ChevronDown, ChevronUp, CircleAlert, Lightbulb, ClipboardList } from "lucide-react";
 import { api, ApiApplication, ApiJob, getSession, SessionUser } from "@/lib/api";
 
 const phases = ["Triagem", "Entrevista", "Contratado", "Reprovado"] as const;
@@ -87,6 +87,29 @@ export default function CompanyCandidatesPage() {
   const [interviewLink, setInterviewLink] = useState("");
   const [interviewNotes, setInterviewNotes] = useState("");
   const [scheduling, setScheduling] = useState(false);
+  const [guideId, setGuideId] = useState<number | null>(null);
+  const [generatingGuide, setGeneratingGuide] = useState<number | null>(null);
+  const [savingGuide, setSavingGuide] = useState(false);
+
+  async function generateGuide(app: ApiApplication) {
+    const session = getSession(); if (!session) return;
+    setGeneratingGuide(app.id); setError("");
+    try { const updated = await api.generateInterviewGuide(app.id, session.token); setApps((items) => items.map((item) => item.id === app.id ? { ...item, ...updated } : item)); setGuideId(app.id); }
+    catch (e) { setError(e instanceof Error ? e.message : "Não foi possível gerar o roteiro."); }
+    finally { setGeneratingGuide(null); }
+  }
+
+  async function saveGuide(app: ApiApplication) {
+    const session = getSession(); if (!session || !app.roteiro_entrevista) return;
+    setSavingGuide(true);
+    try { const updated = await api.saveInterviewGuide(app.id, app.roteiro_entrevista, session.token); setApps((items) => items.map((item) => item.id === app.id ? { ...item, ...updated } : item)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Não foi possível guardar a avaliação."); }
+    finally { setSavingGuide(false); }
+  }
+
+  function updateGuide(appId: number, index: number, field: "nota" | "observacao", value: string) {
+    setApps((items) => items.map((app) => app.id !== appId || !app.roteiro_entrevista ? app : { ...app, roteiro_entrevista: app.roteiro_entrevista.map((question, questionIndex) => questionIndex !== index ? question : { ...question, [field]: field === "nota" ? (value ? Number(value) : null) : value }) }));
+  }
 
   async function scheduleInterview(app: ApiApplication) {
     const session = getSession();
@@ -214,6 +237,7 @@ export default function CompanyCandidatesPage() {
                       {app.fase_atual !== "Contratado" && app.fase_atual !== "Reprovado" && (
                         <button type="button" onClick={() => { setSchedulingId(schedulingId === app.id ? null : app.id); setInterviewAt(app.entrevista_data ? new Date(app.entrevista_data).toISOString().slice(0, 16) : ""); setInterviewLink(app.entrevista_link ?? ""); setInterviewNotes(app.entrevista_notas ?? ""); }} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100"><CalendarDays className="h-3.5 w-3.5" />{app.entrevista_data ? "Reagendar entrevista" : "Agendar entrevista"}</button>
                       )}
+                      <button type="button" onClick={() => app.roteiro_entrevista ? setGuideId(guideId === app.id ? null : app.id) : void generateGuide(app)} disabled={generatingGuide === app.id} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"><ClipboardList className="h-3.5 w-3.5" />{generatingGuide === app.id ? "A gerar…" : app.roteiro_entrevista ? "Roteiro de entrevista" : "Gerar roteiro IA"}</button>
                       {app.feedback_ia && (
                         <button
                           type="button"
@@ -303,6 +327,13 @@ export default function CompanyCandidatesPage() {
                       <label className="text-xs font-bold text-slate-700 sm:col-span-2">Notas para o candidato (opcional)<textarea value={interviewNotes} onChange={(event) => setInterviewNotes(event.target.value)} rows={2} placeholder="Ex.: entrevista online com duração prevista de 45 minutos." className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" /></label>
                       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setSchedulingId(null)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-white">Cancelar</button><button disabled={scheduling} className="rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-50">{scheduling ? "A agendar…" : "Confirmar entrevista"}</button></div>
                     </form>
+                  )}
+                  {guideId === app.id && app.roteiro_entrevista && (
+                    <section className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                      <div className="flex items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 text-sm font-bold text-indigo-950"><ClipboardList className="h-4 w-4" /> Roteiro de entrevista assistido por IA</h3><p className="mt-1 text-xs text-slate-600">Edite livremente as perguntas e registe a avaliação. A decisão é sempre humana.</p></div><button type="button" onClick={() => void generateGuide(app)} disabled={generatingGuide === app.id} className="text-xs font-bold text-indigo-700 hover:text-indigo-900">Gerar novamente</button></div>
+                      <div className="mt-4 space-y-3">{app.roteiro_entrevista.map((question, index) => <div key={`${question.pergunta}-${index}`} className="rounded-lg border border-white bg-white p-3"><p className="text-sm font-bold text-slate-900">{index + 1}. {question.pergunta}</p><p className="mt-1 text-xs text-slate-600"><strong>Critério:</strong> {question.criterio_avaliacao}</p><div className="mt-3 grid gap-2 sm:grid-cols-[120px_1fr]"><label className="text-xs font-semibold text-slate-700">Nota (1–5)<select value={question.nota ?? ""} onChange={(event) => updateGuide(app.id, index, "nota", event.target.value)} className="mt-1 block w-full rounded border border-slate-300 px-2 py-1.5 text-sm"><option value="">—</option>{[1,2,3,4,5].map((score) => <option key={score} value={score}>{score}</option>)}</select></label><label className="text-xs font-semibold text-slate-700">Observação<textarea value={question.observacao ?? ""} onChange={(event) => updateGuide(app.id, index, "observacao", event.target.value)} rows={2} className="mt-1 block w-full rounded border border-slate-300 px-2 py-1.5 text-sm font-normal" placeholder="Registe evidências da resposta…" /></label></div></div>)}</div>
+                      <div className="mt-4 flex justify-end"><button type="button" onClick={() => void saveGuide(app)} disabled={savingGuide} className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50">{savingGuide ? "A guardar…" : "Guardar avaliação"}</button></div>
+                    </section>
                   )}
                 </article>
               );

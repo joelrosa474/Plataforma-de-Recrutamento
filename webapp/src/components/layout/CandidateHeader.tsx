@@ -53,7 +53,7 @@ export function CandidateHeader() {
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
-          <Link href="/" className="flex items-center gap-2.5 sm:gap-3" aria-label="Página inicial">
+          <Link href="/candidate/dashboard" className="flex items-center gap-2.5 sm:gap-3" aria-label="Ir para o painel do candidato">
             <Image src={logoSalu} alt="Salú" priority className="h-11 w-auto sm:h-14" />
           </Link>
 

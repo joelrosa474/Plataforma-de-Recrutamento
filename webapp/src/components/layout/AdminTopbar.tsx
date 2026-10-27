@@ -1,7 +1,10 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { useSidebar } from "./SidebarContext";
+import logoSalu from "@/fotos/Salú (2).png";
 
 export function AdminTopbar() {
   const { toggle } = useSidebar();
@@ -18,7 +21,11 @@ export function AdminTopbar() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+        <Link href="/admin/dashboard" aria-label="Ir para o painel do administrador" className="lg:hidden">
+          <Image src={logoSalu} alt="É Salú" className="h-9 w-auto" />
+        </Link>
+
+        <h1 className="hidden text-sm sm:text-base font-bold text-slate-900 truncate lg:block">
           Painel do Administrador
         </h1>
       </div>

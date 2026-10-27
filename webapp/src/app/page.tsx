@@ -14,6 +14,7 @@ import {
 import foto1 from "@/fotos/foto1.jpg";
 import foto2 from "@/fotos/foto2.jpg";
 import logoSalu from "@/fotos/Salú (2).png";
+import { HelpChatbot } from "@/components/support/HelpChatbot";
 
 const highlights = [
   {
@@ -87,7 +88,7 @@ export default function Home() {
                   />
                 </label>
                 <Link
-                  href="/candidate/dashboard"
+                  href="/auth"
                   className="inline-flex h-12 sm:h-14 items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 sm:px-7 text-sm font-bold text-white transition hover:bg-sky-700 shadow-sm"
                 >
                   Procurar vagas
@@ -162,6 +163,16 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <footer className="bg-slate-950 px-4 py-10 text-slate-300 sm:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr]">
+          <div><Link href="/" aria-label="Ir para a página inicial"><Image src={logoSalu} alt="Salú" className="h-14 w-auto brightness-0 invert" /></Link><p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">A plataforma que aproxima talentos e empresas em Angola, com processos de recrutamento simples e transparentes.</p></div>
+          <div><h2 className="text-sm font-bold text-white">Para candidatos</h2><nav className="mt-3 space-y-2 text-sm"><Link href="/auth" className="block hover:text-white">Procurar vagas</Link><Link href="/auth" className="block hover:text-white">Criar conta</Link><Link href="/auth" className="block hover:text-white">Gerir perfil</Link></nav></div>
+          <div><h2 className="text-sm font-bold text-white">Para empresas</h2><nav className="mt-3 space-y-2 text-sm"><Link href="/auth" className="block hover:text-white">Registar empresa</Link><Link href="/auth" className="block hover:text-white">Publicar vaga</Link><Link href="/auth" className="block hover:text-white">Banco de talentos</Link></nav></div>
+        </div>
+        <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-2 border-t border-slate-800 pt-5 text-xs text-slate-500 sm:flex-row sm:justify-between"><p>© {new Date().getFullYear()} Salú. Todos os direitos reservados.</p><p>Recrutamento digital para Angola.</p></div>
+      </footer>
+      <HelpChatbot />
     </main>
   );
 }

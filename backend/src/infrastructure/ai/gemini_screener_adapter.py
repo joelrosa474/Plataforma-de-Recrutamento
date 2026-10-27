@@ -20,6 +20,15 @@ class MatchScoreSchema(BaseModel):
     recomendacao: str = Field(description="Recomendação concisa e neutra para o recrutador sobre o próximo passo.")
 
 
+class PerguntaEntrevistaSchema(BaseModel):
+    pergunta: str = Field(description="Pergunta objetiva e profissional para a entrevista.")
+    criterio_avaliacao: str = Field(description="O que o entrevistador deve procurar na resposta.")
+
+
+class RoteiroEntrevistaSchema(BaseModel):
+    perguntas: list[PerguntaEntrevistaSchema] = Field(description="Cinco perguntas personalizadas, justas e relevantes.")
+
+
 class GeminiScreenerAdapter(AIScreenerPort):
     def __init__(self):
         api_key = os.environ.get("GEMINI_API_KEY")
@@ -90,6 +99,38 @@ class GeminiScreenerAdapter(AIScreenerPort):
     def calcular_match_score(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> float:
         score, _, _ = self.avaliar_candidatura(curriculo_texto, vaga_descricao, vaga_requisitos)
         return score
+
+    def gerar_roteiro_entrevista(self, vaga_descricao: str, vaga_requisitos: list[str], perfil_candidato: str, analise_match: dict | None = None) -> list[dict]:
+        """Gera perguntas de apoio; nunca usa atributos pessoais ou decide a contratação."""
+        if not self.client:
+            return self._roteiro_padrao(vaga_requisitos)
+        prompt = f"""
+        Atue como apoio a um recrutador. Crie exatamente cinco perguntas para uma entrevista justa.
+        Não pergunte sobre idade, género, religião, origem, saúde, estado civil, gravidez ou outros dados sensíveis.
+        VAGA: {vaga_descricao}\nREQUISITOS: {', '.join(vaga_requisitos)}\nPERFIL DO CANDIDATO: {perfil_candidato}\nANÁLISE ANTERIOR: {json.dumps(analise_match or {}, ensure_ascii=False)}
+        Combine perguntas sobre experiência comprovável, competências da vaga, resolução de problemas, colaboração e motivação.
+        Para cada pergunta, indique um critério objetivo de avaliação. A decisão final é humana.
+        """
+        try:
+            response = self.client.models.generate_content(model=self.model_name, contents=prompt, config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=RoteiroEntrevistaSchema, temperature=0.25))
+            dados = json.loads(response.text)
+            perguntas = dados.get("perguntas", [])
+            resultado = [{"pergunta": str(item.get("pergunta", "")).strip(), "criterio_avaliacao": str(item.get("criterio_avaliacao", "")).strip(), "nota": None, "observacao": ""} for item in perguntas]
+            return [item for item in resultado if item["pergunta"] and item["criterio_avaliacao"]][:5] or self._roteiro_padrao(vaga_requisitos)
+        except Exception as e:
+            print(f"Erro ao gerar roteiro de entrevista com Gemini: {e}")
+            return self._roteiro_padrao(vaga_requisitos)
+
+    @staticmethod
+    def _roteiro_padrao(requisitos: list[str]) -> list[dict]:
+        requisito = requisitos[0] if requisitos else "os principais requisitos desta vaga"
+        return [
+            {"pergunta": f"Conte sobre uma experiência prática relevante para {requisito}.", "criterio_avaliacao": "Procure contexto, ação concreta e resultado verificável.", "nota": None, "observacao": ""},
+            {"pergunta": "Descreva um problema profissional complexo que resolveu e como tomou decisões.", "criterio_avaliacao": "Avalie raciocínio, autonomia e clareza na solução.", "nota": None, "observacao": ""},
+            {"pergunta": "Como colabora com colegas e comunica riscos ou bloqueios?", "criterio_avaliacao": "Avalie comunicação, responsabilidade e trabalho em equipa.", "nota": None, "observacao": ""},
+            {"pergunta": "Que aprendizagem recente aplicou no seu trabalho ou projeto?", "criterio_avaliacao": "Procure curiosidade e capacidade de evolução profissional.", "nota": None, "observacao": ""},
+            {"pergunta": "O que o atrai nesta função e como pretende gerar impacto?", "criterio_avaliacao": "Avalie motivação relacionada com a função e entendimento da vaga.", "nota": None, "observacao": ""},
+        ]
 
     @staticmethod
     def _lista_limitada(valor, limite: int) -> list[str]:

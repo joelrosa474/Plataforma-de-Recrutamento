@@ -22,6 +22,7 @@ class Candidatura(BaseModel):
     entrevista_data: Optional[datetime] = None
     entrevista_link: Optional[str] = None
     entrevista_notas: Optional[str] = None
+    roteiro_entrevista: Optional[list[dict[str, Any]]] = None
     data_aplicacao: datetime = Field(default_factory=datetime.now)
 
     def avancar_fase(self, nova_fase: str):

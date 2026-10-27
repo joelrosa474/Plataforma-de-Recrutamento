@@ -29,6 +29,7 @@ export type ApiApplication = {
   entrevista_data?: string | null;
   entrevista_link?: string | null;
   entrevista_notas?: string | null;
+  roteiro_entrevista?: { pergunta: string; criterio_avaliacao: string; nota?: number | null; observacao?: string }[] | null;
   tem_curriculo?: boolean;
   data_aplicacao: string;
   candidato?: {
@@ -161,6 +162,8 @@ export const api = {
   },
   updateApplicationPhase: (id: number, fase_atual: ApiApplication["fase_atual"], token?: string) => request<ApiApplication>(`/api/candidaturas/${id}/fase`, { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ fase_atual }) }),
   scheduleInterview: (id: number, data: { entrevista_data: string; entrevista_link?: string; entrevista_notas?: string }, token?: string) => request<ApiApplication>(`/api/candidaturas/${id}/entrevista`, { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) }),
+  generateInterviewGuide: (id: number, token?: string) => request<ApiApplication>(`/api/candidaturas/${id}/roteiro-entrevista`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  saveInterviewGuide: (id: number, roteiro_entrevista: NonNullable<ApiApplication["roteiro_entrevista"]>, token?: string) => request<ApiApplication>(`/api/candidaturas/${id}/roteiro-entrevista`, { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ roteiro_entrevista }) }),
   myProfile: (token?: string) => request<SessionUser>("/api/auth/me", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   updateProfile: (data: Pick<SessionUser, "nome" | "localizacao" | "experiencia" | "competencias" | "linkedin_url" | "github_url" | "perfil_publico_talentos">, token?: string) => request<SessionUser>("/api/auth/me", { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) }),
   candidateProfile: (id: number, token?: string) => request<SessionUser>(`/api/auth/candidatos/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),

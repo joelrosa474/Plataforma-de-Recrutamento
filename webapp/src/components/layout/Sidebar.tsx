@@ -30,6 +30,7 @@ export function Sidebar({ role }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { isOpen, close } = useSidebar();
+  const homeHref = role === "company" ? "/company/dashboard" : role === "admin" ? "/admin/dashboard" : "/candidate/dashboard";
 
   let navItems: NavItem[] = [];
 
@@ -81,7 +82,7 @@ export function Sidebar({ role }: SidebarProps) {
       >
         {/* Cabeçalho da Sidebar */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-200">
-          <Link href="/" onClick={close} className="flex items-center gap-2.5">
+          <Link href={homeHref} onClick={close} className="flex items-center gap-2.5" aria-label="Ir para o painel inicial">
             <Image src={logoSalu} alt="Salú" priority className="h-11 w-auto" />
           </Link>
 

@@ -24,6 +24,7 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
                 entrevista_data=candidatura.entrevista_data,
                 entrevista_link=candidatura.entrevista_link,
                 entrevista_notas=candidatura.entrevista_notas,
+                roteiro_entrevista=json.dumps(candidatura.roteiro_entrevista, ensure_ascii=False) if candidatura.roteiro_entrevista else None,
                 data_aplicacao=candidatura.data_aplicacao
             )
             self.db.add(db_candidatura)
@@ -42,6 +43,7 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
                 db_candidatura.entrevista_data = candidatura.entrevista_data
                 db_candidatura.entrevista_link = candidatura.entrevista_link
                 db_candidatura.entrevista_notas = candidatura.entrevista_notas
+                db_candidatura.roteiro_entrevista = json.dumps(candidatura.roteiro_entrevista, ensure_ascii=False) if candidatura.roteiro_entrevista else None
         
         self.db.commit()
         self.db.refresh(db_candidatura)
@@ -64,6 +66,10 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
             analise_match_ia = json.loads(model.analise_match_ia) if model.analise_match_ia else None
         except (TypeError, json.JSONDecodeError):
             analise_match_ia = None
+        try:
+            roteiro_entrevista = json.loads(model.roteiro_entrevista) if model.roteiro_entrevista else None
+        except (TypeError, json.JSONDecodeError):
+            roteiro_entrevista = None
         return Candidatura(
             id=model.id,
             vaga_id=model.vaga_id,
@@ -77,5 +83,6 @@ class CandidaturaRepositorySQLAlchemy(CandidaturaRepository):
             entrevista_data=model.entrevista_data,
             entrevista_link=model.entrevista_link,
             entrevista_notas=model.entrevista_notas,
+            roteiro_entrevista=roteiro_entrevista,
             data_aplicacao=model.data_aplicacao
         )

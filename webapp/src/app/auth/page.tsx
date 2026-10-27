@@ -2,8 +2,10 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, saveSession, SessionUser } from "@/lib/api";
+import logoSalu from "@/fotos/Salú (2).png";
 
 export default function AuthPage() {
   return (
@@ -122,8 +124,8 @@ function AuthPageContent() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5 py-8">
       <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-7 shadow-sm">
-        <Link href="/" className="text-xl font-bold text-sky-700">
-          É Salú
+        <Link href="/" className="inline-flex" aria-label="Página inicial da Salú">
+          <Image src={logoSalu} alt="É Salú" priority className="h-16 w-auto" />
         </Link>
 
         <h1 className="mt-6 text-2xl font-bold text-slate-950">
