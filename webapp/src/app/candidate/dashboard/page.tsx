@@ -3,7 +3,7 @@
 import { ChangeEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { BriefcaseBusiness, FileText, Search, X, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
-import { api, ApiJob, getSession } from "@/lib/api";
+import { api, ApiJob, getSession, RecommendedJob } from "@/lib/api";
 
 export default function CandidateDashboard() {
   const [jobs, setJobs] = useState<ApiJob[]>([]);
@@ -17,6 +17,7 @@ export default function CandidateDashboard() {
   const [resume, setResume] = useState<File | null>(null);
   const [applying, setApplying] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [recommendations, setRecommendations] = useState<RecommendedJob[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -25,6 +26,12 @@ export default function CandidateDashboard() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [query, localizacao, modalidade, area]);
+
+  useEffect(() => {
+    const session = getSession();
+    if (!session || session.user.tipo_perfil !== "Candidato") return;
+    api.recommendedJobs(session.token).then(setRecommendations).catch(() => undefined);
+  }, []);
 
   async function apply() {
     const session = getSession();
@@ -96,6 +103,18 @@ export default function CandidateDashboard() {
         <div role="alert" className="rounded-xl bg-red-50 border border-red-200 p-4 text-sm font-medium text-red-700">
           {error}
         </div>
+      )}
+
+      {recommendations.length > 0 && (
+        <section className="rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 via-sky-50 to-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div><p className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-violet-700"><Sparkles className="h-3.5 w-3.5" />Para o seu perfil</p><h2 className="mt-1 text-xl font-bold text-slate-950">Vagas recomendadas</h2><p className="mt-1 text-sm text-slate-600">Sugestões explicáveis baseadas nas competências, experiência e localização do seu perfil.</p></div>
+            <Link href="/candidate/profile" className="shrink-0 text-xs font-bold text-sky-700 hover:text-sky-900">Atualizar perfil</Link>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {recommendations.map((job) => <article key={job.id} className="rounded-xl border border-white bg-white/90 p-4 shadow-sm"><div className="flex items-start justify-between gap-2"><h3 className="font-bold text-slate-950">{job.titulo}</h3><span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">{job.match_score.toFixed(0)}%</span></div><p className="mt-1 text-xs text-sky-700">{[job.area, job.localizacao, job.modalidade].filter(Boolean).join(" · ")}</p><ul className="mt-3 space-y-1 text-xs leading-relaxed text-slate-600">{job.motivos.slice(0, 2).map((motivo) => <li key={motivo}>• {motivo}</li>)}</ul><button type="button" onClick={() => setSelected(job)} className="mt-4 text-xs font-bold text-sky-700 hover:text-sky-900">Ver vaga e candidatar-me →</button></article>)}
+          </div>
+        </section>
       )}
 
       {/* Filtros de Busca Responsivos */}

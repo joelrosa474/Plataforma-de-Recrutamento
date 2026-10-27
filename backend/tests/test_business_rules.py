@@ -17,6 +17,16 @@ class FakeAIScreener:
         return ["python"]
 
 
+class ExplainableFakeAIScreener(FakeAIScreener):
+    def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]):
+        return 82.0, "Perfil com boa aderência à vaga.", {
+            "competencias_alinhadas": ["Python", "SQL"],
+            "requisitos_em_falta": ["Docker"],
+            "evidencias_experiencia": ["Projeto de análise de dados"],
+            "recomendacao": "Validar experiência prática com Docker na entrevista.",
+        }
+
+
 class TestBusinessRules(unittest.TestCase):
     def test_registrar_rejeita_email_invalido(self):
         repo = UsuarioRepositoryMemory()
@@ -84,6 +94,19 @@ class TestBusinessRules(unittest.TestCase):
         self.assertIsNotNone(atualizada)
         self.assertEqual(atualizada.match_score, 90.0)
         self.assertEqual(atualizada.fase_atual, "Entrevista")
+
+    def test_triagem_ia_guarda_explicacao_estruturada(self):
+        vaga_repo = VagaRepositoryMemory()
+        candidatura_repo = CandidaturaRepositoryMemory()
+        vaga_salva = vaga_repo.salvar(Vaga(empresa_id=10, titulo="Analista", descricao="Análise de dados", requisitos=["Python", "Docker"], status="Aberta"))
+        use_case = RealizarCandidaturaUseCase(candidatura_repo, vaga_repo, ExplainableFakeAIScreener())
+
+        candidatura = use_case.aplicar_para_vaga(vaga_salva.id, 20, "Experiência com Python e SQL")
+
+        self.assertEqual(candidatura.match_score, 82.0)
+        self.assertEqual(candidatura.analise_match_ia["competencias_alinhadas"], ["Python", "SQL"])
+        self.assertEqual(candidatura.analise_match_ia["requisitos_em_falta"], ["Docker"])
+        self.assertEqual(candidatura.fase_atual, "Triagem")
 
 
 if __name__ == "__main__":

@@ -56,6 +56,7 @@ def migrate_sqlite_schema():
         "competencias": "TEXT DEFAULT '[]'",
         "linkedin_url": "TEXT",
         "github_url": "TEXT",
+        "perfil_publico_talentos": "INTEGER NOT NULL DEFAULT 0",
     }
     with engine.begin() as connection:
         for name, definition in user_columns.items():
@@ -70,6 +71,14 @@ def migrate_sqlite_schema():
             connection.execute(text("ALTER TABLE candidaturas ADD COLUMN curriculo_nome TEXT"))
         if "feedback_ia" not in cand_columns:
             connection.execute(text("ALTER TABLE candidaturas ADD COLUMN feedback_ia TEXT"))
+        if "analise_match_ia" not in cand_columns:
+            connection.execute(text("ALTER TABLE candidaturas ADD COLUMN analise_match_ia TEXT"))
+        if "entrevista_data" not in cand_columns:
+            connection.execute(text("ALTER TABLE candidaturas ADD COLUMN entrevista_data DATETIME"))
+        if "entrevista_link" not in cand_columns:
+            connection.execute(text("ALTER TABLE candidaturas ADD COLUMN entrevista_link TEXT"))
+        if "entrevista_notas" not in cand_columns:
+            connection.execute(text("ALTER TABLE candidaturas ADD COLUMN entrevista_notas TEXT"))
 
 
 # Dependência do FastAPI para injetar a sessão

@@ -16,6 +16,24 @@ class RealizarCandidaturaUseCase:
         self.vaga_repo = vaga_repo
         self.ai_screener = ai_screener
 
+    def _avaliar_com_explicacao(self, curriculo_texto: str, vaga) -> tuple[float, str | None, dict | None]:
+        """Mantém compatibilidade com implementações antigas do screener que retornam apenas score e parecer."""
+        if hasattr(self.ai_screener, "avaliar_candidatura"):
+            resultado = self.ai_screener.avaliar_candidatura(
+                curriculo_texto=curriculo_texto,
+                vaga_descricao=vaga.descricao,
+                vaga_requisitos=vaga.requisitos,
+            )
+            score, feedback = resultado[0], resultado[1]
+            analise = resultado[2] if len(resultado) > 2 else None
+            return score, feedback, analise
+        score = self.ai_screener.calcular_match_score(
+            curriculo_texto=curriculo_texto,
+            vaga_descricao=vaga.descricao,
+            vaga_requisitos=vaga.requisitos,
+        )
+        return score, None, None
+
     def aplicar_para_vaga(self, vaga_id: int, candidato_id: int, curriculo_texto: str = "", curriculo_path: str = "", curriculo_nome: str = "", processar_ia: bool = True) -> Candidatura:
         if not curriculo_texto or not curriculo_texto.strip():
             raise ValueError("É obrigatório anexar um currículo válido para candidatar-se.")
@@ -37,20 +55,8 @@ class RealizarCandidaturaUseCase:
 
         if processar_ia and self.ai_screener:
             try:
-                if hasattr(self.ai_screener, "avaliar_candidatura"):
-                    score, feedback = self.ai_screener.avaliar_candidatura(
-                        curriculo_texto=curriculo_texto,
-                        vaga_descricao=vaga.descricao,
-                        vaga_requisitos=vaga.requisitos
-                    )
-                    salva.registrar_score(score, feedback)
-                else:
-                    score = self.ai_screener.calcular_match_score(
-                        curriculo_texto=curriculo_texto,
-                        vaga_descricao=vaga.descricao,
-                        vaga_requisitos=vaga.requisitos
-                    )
-                    salva.registrar_score(score)
+                score, feedback, analise = self._avaliar_com_explicacao(curriculo_texto, vaga)
+                salva.registrar_score(score, feedback, analise)
 
                 if score >= 85.0:
                     salva.avancar_fase("Entrevista")
@@ -70,20 +76,8 @@ class RealizarCandidaturaUseCase:
             return None
 
         try:
-            if hasattr(self.ai_screener, "avaliar_candidatura"):
-                score, feedback = self.ai_screener.avaliar_candidatura(
-                    curriculo_texto=curriculo_texto,
-                    vaga_descricao=vaga.descricao,
-                    vaga_requisitos=vaga.requisitos
-                )
-                candidatura.registrar_score(score, feedback)
-            else:
-                score = self.ai_screener.calcular_match_score(
-                    curriculo_texto=curriculo_texto,
-                    vaga_descricao=vaga.descricao,
-                    vaga_requisitos=vaga.requisitos
-                )
-                candidatura.registrar_score(score)
+            score, feedback, analise = self._avaliar_com_explicacao(curriculo_texto, vaga)
+            candidatura.registrar_score(score, feedback, analise)
 
             if score >= 85.0:
                 candidatura.avancar_fase("Entrevista")

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileDown, Sparkles, MapPin, Mail, Calendar, FileText, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { FileDown, Sparkles, MapPin, Mail, Calendar, CalendarDays, FileText, CheckCircle, Clock, ChevronDown, ChevronUp, CircleAlert, Lightbulb } from "lucide-react";
 import { api, ApiApplication, ApiJob, getSession, SessionUser } from "@/lib/api";
 
 const phases = ["Triagem", "Entrevista", "Contratado", "Reprovado"] as const;
@@ -82,6 +82,25 @@ export default function CompanyCandidatesPage() {
   }
 
   const [expandedFeedbackId, setExpandedFeedbackId] = useState<number | null>(null);
+  const [schedulingId, setSchedulingId] = useState<number | null>(null);
+  const [interviewAt, setInterviewAt] = useState("");
+  const [interviewLink, setInterviewLink] = useState("");
+  const [interviewNotes, setInterviewNotes] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+
+  async function scheduleInterview(app: ApiApplication) {
+    const session = getSession();
+    if (!session || !interviewAt) return;
+    setScheduling(true);
+    setError("");
+    try {
+      const updated = await api.scheduleInterview(app.id, { entrevista_data: new Date(interviewAt).toISOString(), entrevista_link: interviewLink || undefined, entrevista_notas: interviewNotes || undefined }, session.token);
+      setApps((items) => items.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+      setSchedulingId(null);
+      setInterviewAt(""); setInterviewLink(""); setInterviewNotes("");
+    } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível agendar a entrevista."); }
+    finally { setScheduling(false); }
+  }
 
   return (
     <section className="space-y-6">
@@ -130,6 +149,7 @@ export default function CompanyCandidatesPage() {
               const score = app.match_score;
               const hasCV = app.tem_curriculo ?? true;
               const isFeedbackOpen = expandedFeedbackId === app.id;
+              const analysis = app.analise_match_ia;
 
               return (
                 <article key={app.id} className="p-4 sm:p-6 hover:bg-slate-50/50 transition">
@@ -191,6 +211,9 @@ export default function CompanyCandidatesPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                      {app.fase_atual !== "Contratado" && app.fase_atual !== "Reprovado" && (
+                        <button type="button" onClick={() => { setSchedulingId(schedulingId === app.id ? null : app.id); setInterviewAt(app.entrevista_data ? new Date(app.entrevista_data).toISOString().slice(0, 16) : ""); setInterviewLink(app.entrevista_link ?? ""); setInterviewNotes(app.entrevista_notas ?? ""); }} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100"><CalendarDays className="h-3.5 w-3.5" />{app.entrevista_data ? "Reagendar entrevista" : "Agendar entrevista"}</button>
+                      )}
                       {app.feedback_ia && (
                         <button
                           type="button"
@@ -242,10 +265,44 @@ export default function CompanyCandidatesPage() {
                           Compatibilidade: {score?.toFixed(0)}%
                         </span>
                       </div>
-                      <p className="whitespace-pre-line leading-relaxed text-slate-700">
-                        {app.feedback_ia}
-                      </p>
+                      <p className="whitespace-pre-line leading-relaxed text-slate-700">{app.feedback_ia}</p>
+
+                      {analysis && (
+                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                          <ExplanationList
+                            title="Competências alinhadas"
+                            items={analysis.competencias_alinhadas}
+                            className="border-emerald-100 bg-emerald-50/60 text-emerald-950"
+                            emptyLabel="Nenhuma competência foi identificada com segurança."
+                          />
+                          <ExplanationList
+                            title="Requisitos a confirmar"
+                            items={analysis.requisitos_em_falta}
+                            className="border-amber-100 bg-amber-50/60 text-amber-950"
+                            emptyLabel="Não foram identificados requisitos pendentes."
+                          />
+                          <ExplanationList
+                            title="Evidências no currículo"
+                            items={analysis.evidencias_experiencia}
+                            className="border-sky-100 bg-sky-50/60 text-sky-950 lg:col-span-2"
+                            emptyLabel="Sem evidências adicionais extraídas."
+                          />
+                          <div className="rounded-lg border border-violet-100 bg-violet-50/60 p-3 lg:col-span-2">
+                            <p className="flex items-center gap-1.5 font-bold text-violet-950"><Lightbulb className="h-3.5 w-3.5" /> Recomendação da IA</p>
+                            <p className="mt-1.5 leading-relaxed text-slate-700">{analysis.recomendacao}</p>
+                          </div>
+                          <p className="flex items-start gap-1.5 text-[11px] text-slate-500 lg:col-span-2"><CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> A IA apoia a análise; a decisão de recrutamento deve ser sempre humana.</p>
+                        </div>
+                      )}
                     </div>
+                  )}
+                  {schedulingId === app.id && (
+                    <form onSubmit={(event) => { event.preventDefault(); void scheduleInterview(app); }} className="mt-4 grid gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4 sm:grid-cols-2">
+                      <label className="text-xs font-bold text-slate-700">Data e hora *<input required type="datetime-local" value={interviewAt} onChange={(event) => setInterviewAt(event.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" /></label>
+                      <label className="text-xs font-bold text-slate-700">Link da reunião (opcional)<input type="url" value={interviewLink} onChange={(event) => setInterviewLink(event.target.value)} placeholder="https://meet.google.com/..." className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" /></label>
+                      <label className="text-xs font-bold text-slate-700 sm:col-span-2">Notas para o candidato (opcional)<textarea value={interviewNotes} onChange={(event) => setInterviewNotes(event.target.value)} rows={2} placeholder="Ex.: entrevista online com duração prevista de 45 minutos." className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" /></label>
+                      <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setSchedulingId(null)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-white">Cancelar</button><button disabled={scheduling} className="rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-50">{scheduling ? "A agendar…" : "Confirmar entrevista"}</button></div>
+                    </form>
                   )}
                 </article>
               );
@@ -254,5 +311,18 @@ export default function CompanyCandidatesPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function ExplanationList({ title, items, className, emptyLabel }: { title: string; items: string[]; className: string; emptyLabel: string }) {
+  return (
+    <div className={`rounded-lg border p-3 ${className}`}>
+      <p className="font-bold">{title}</p>
+      {items.length > 0 ? (
+        <ul className="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed text-slate-700">
+          {items.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+        </ul>
+      ) : <p className="mt-1.5 text-slate-600">{emptyLabel}</p>}
+    </div>
   );
 }

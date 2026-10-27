@@ -20,8 +20,9 @@ class UsuarioRepositorySQLAlchemy(UsuarioRepository):
             db_usuario.set_competencias_list(usuario.competencias)
             db_usuario.linkedin_url = usuario.linkedin_url
             db_usuario.github_url = usuario.github_url
+            db_usuario.perfil_publico_talentos = 1 if usuario.perfil_publico_talentos else 0
         else:
-            db_usuario = UsuarioModel(nome=usuario.nome, email=usuario.email, senha_hash=usuario.senha_hash, tipo_perfil=usuario.tipo_perfil, localizacao=usuario.localizacao, experiencia=usuario.experiencia, linkedin_url=usuario.linkedin_url, github_url=usuario.github_url)
+            db_usuario = UsuarioModel(nome=usuario.nome, email=usuario.email, senha_hash=usuario.senha_hash, tipo_perfil=usuario.tipo_perfil, localizacao=usuario.localizacao, experiencia=usuario.experiencia, linkedin_url=usuario.linkedin_url, github_url=usuario.github_url, perfil_publico_talentos=1 if usuario.perfil_publico_talentos else 0)
             db_usuario.set_competencias_list(usuario.competencias)
             self.db.add(db_usuario)
         self.db.commit()
@@ -60,5 +61,6 @@ class UsuarioRepositorySQLAlchemy(UsuarioRepository):
             experiencia=model.experiencia,
             competencias=model.get_competencias_list(),
             linkedin_url=model.linkedin_url,
-            github_url=model.github_url
+            github_url=model.github_url,
+            perfil_publico_talentos=bool(model.perfil_publico_talentos)
         )

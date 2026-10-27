@@ -37,6 +37,7 @@ export default function CandidateProfilePage() {
             .filter(Boolean),
           linkedin_url: String(form.get("linkedin_url")) || null,
           github_url: String(form.get("github_url")) || null,
+          perfil_publico_talentos: form.get("perfil_publico_talentos") === "on",
         },
         session.token
       );
@@ -103,6 +104,16 @@ export default function CandidateProfilePage() {
               defaultValue={user?.nome}
               className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-base sm:text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500"
             />
+          </label>
+
+          <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4 text-sm text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              name="perfil_publico_talentos"
+              defaultChecked={user?.perfil_publico_talentos ?? false}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+            />
+            <span><strong className="text-slate-900">Participar no Banco de Talentos</strong><br />Autorizo empresas registadas a encontrarem o meu perfil profissional e entrarem em contacto sobre oportunidades. Pode retirar esta autorização a qualquer momento.</span>
           </label>
 
           <label className="block text-xs sm:text-sm font-semibold text-slate-800">

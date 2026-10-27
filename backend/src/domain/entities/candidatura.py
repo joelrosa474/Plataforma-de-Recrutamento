@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 
 VALID_FASES = {"Triagem", "Entrevista", "Contratado", "Reprovado"}
@@ -16,8 +16,12 @@ class Candidatura(BaseModel):
     fase_atual: str = "Triagem" # Triagem, Entrevista, Contratado, Reprovado
     match_score: Optional[float] = None
     feedback_ia: Optional[str] = None
+    analise_match_ia: Optional[dict[str, Any]] = None
     curriculo_path: Optional[str] = None
     curriculo_nome: Optional[str] = None
+    entrevista_data: Optional[datetime] = None
+    entrevista_link: Optional[str] = None
+    entrevista_notas: Optional[str] = None
     data_aplicacao: datetime = Field(default_factory=datetime.now)
 
     def avancar_fase(self, nova_fase: str):
@@ -30,7 +34,9 @@ class Candidatura(BaseModel):
             raise ValueError("Transição de fase inválida.")
         self.fase_atual = nova_fase
 
-    def registrar_score(self, score: float, feedback: Optional[str] = None):
+    def registrar_score(self, score: float, feedback: Optional[str] = None, analise_match_ia: Optional[dict[str, Any]] = None):
         self.match_score = score
         if feedback is not None:
             self.feedback_ia = feedback
+        if analise_match_ia is not None:
+            self.analise_match_ia = analise_match_ia

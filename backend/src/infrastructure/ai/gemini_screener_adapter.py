@@ -14,6 +14,10 @@ class HabilidadesSchema(BaseModel):
 class MatchScoreSchema(BaseModel):
     score: float = Field(description="Pontuação de 0.0 a 100.0 indicando o fit do candidato com a vaga.")
     justificativa: str = Field(description="Breve explicação do porquê desta nota.")
+    competencias_alinhadas: list[str] = Field(description="Até cinco competências ou evidências do currículo que atendem à vaga.")
+    requisitos_em_falta: list[str] = Field(description="Até cinco requisitos que não foram encontrados claramente no currículo. Não inferir informações.")
+    evidencias_experiencia: list[str] = Field(description="Até três experiências, projetos ou formações do currículo relevantes para a vaga.")
+    recomendacao: str = Field(description="Recomendação concisa e neutra para o recrutador sobre o próximo passo.")
 
 
 class GeminiScreenerAdapter(AIScreenerPort):
@@ -28,9 +32,9 @@ class GeminiScreenerAdapter(AIScreenerPort):
         # gemini-flash-latest é o modelo oficial mais estável e rápido para NLP e triagem
         self.model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
-    def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> tuple[float, str]:
+    def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> tuple[float, str, dict]:
         if not self.client:
-            return 50.0, "Análise automática desativada (chave de IA não configurada)."
+            return 50.0, "Análise automática desativada (chave de IA não configurada).", self._analise_padrao()
 
         prompt = f"""
         Atue como um recrutador técnico experiente e analítico.
@@ -47,6 +51,10 @@ class GeminiScreenerAdapter(AIScreenerPort):
         Retorne:
         - "score": nota de 0.0 a 100.0.
         - "justificativa": análise concisa e profissional destacando os pontos fortes e eventuais lacunas técnicas encontradas.
+        - "competencias_alinhadas": lista com até 5 competências comprovadas no currículo e relevantes para a vaga.
+        - "requisitos_em_falta": lista com até 5 requisitos da vaga sem evidência clara no currículo. Não use atributos pessoais, idade, género, origem ou outros critérios sensíveis.
+        - "evidencias_experiencia": lista com até 3 evidências objetivas do currículo (experiência, projeto ou formação) relevantes para a vaga.
+        - "recomendacao": próximo passo objetivo para o recrutador. A decisão final deve permanecer humana.
         """
 
         for attempt in range(3):
@@ -63,19 +71,40 @@ class GeminiScreenerAdapter(AIScreenerPort):
                 result = json.loads(response.text)
                 score = float(result.get("score", 50.0))
                 justificativa = str(result.get("justificativa") or "Avaliação concluída pela IA.")
-                return score, justificativa
+                analise = {
+                    "competencias_alinhadas": self._lista_limitada(result.get("competencias_alinhadas"), 5),
+                    "requisitos_em_falta": self._lista_limitada(result.get("requisitos_em_falta"), 5),
+                    "evidencias_experiencia": self._lista_limitada(result.get("evidencias_experiencia"), 3),
+                    "recomendacao": str(result.get("recomendacao") or "Reveja o currículo e decida o próximo passo de forma humana."),
+                }
+                return max(0.0, min(100.0, score)), justificativa, analise
             except Exception as e:
                 if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
                     time.sleep(1.5 * (attempt + 1))
                     continue
                 print(f"Erro ao avaliar candidatura com Gemini: {e}")
-                return 50.0, "Não foi possível gerar a justificativa detalhada devido a uma instabilidade temporária na API."
+                return 50.0, "Não foi possível gerar a justificativa detalhada devido a uma instabilidade temporária na API.", self._analise_padrao()
 
-        return 50.0, "Análise concluída com pontuação padrão."
+        return 50.0, "Análise concluída com pontuação padrão.", self._analise_padrao()
 
     def calcular_match_score(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> float:
-        score, _ = self.avaliar_candidatura(curriculo_texto, vaga_descricao, vaga_requisitos)
+        score, _, _ = self.avaliar_candidatura(curriculo_texto, vaga_descricao, vaga_requisitos)
         return score
+
+    @staticmethod
+    def _lista_limitada(valor, limite: int) -> list[str]:
+        if not isinstance(valor, list):
+            return []
+        return [str(item).strip() for item in valor if str(item).strip()][:limite]
+
+    @staticmethod
+    def _analise_padrao() -> dict:
+        return {
+            "competencias_alinhadas": [],
+            "requisitos_em_falta": [],
+            "evidencias_experiencia": [],
+            "recomendacao": "Aguarde uma nova análise ou reveja o currículo manualmente.",
+        }
 
     def extrair_habilidades(self, curriculo_texto: str) -> list[str]:
         if not self.client:

@@ -12,3 +12,4 @@ class Usuario(BaseModel):
     competencias: list[str] = []
     linkedin_url: Optional[str] = None
     github_url: Optional[str] = None
+    perfil_publico_talentos: bool = False

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileDown, FileText, ArrowRight, Sparkles } from "lucide-react";
+import { FileDown, FileText, ArrowRight, Sparkles, CalendarDays, ExternalLink } from "lucide-react";
 import { api, ApiApplication, ApiJob, getSession } from "@/lib/api";
 
 const phaseClass: Record<string, string> = {
@@ -129,6 +129,13 @@ export default function CandidateApplicationsPage() {
                       {job?.localizacao && ` · ${job.localizacao}`}
                       {job?.modalidade && ` · ${job.modalidade}`}
                     </p>
+                    {app.entrevista_data && (
+                      <div className="mt-3 rounded-lg border border-sky-100 bg-sky-50 p-3 text-xs text-sky-950">
+                        <p className="flex items-center gap-1.5 font-bold"><CalendarDays className="h-3.5 w-3.5" /> Entrevista: {new Date(app.entrevista_data).toLocaleString("pt-AO", { dateStyle: "medium", timeStyle: "short" })}</p>
+                        {app.entrevista_notas && <p className="mt-1 text-sky-800">{app.entrevista_notas}</p>}
+                        {app.entrevista_link && <a href={app.entrevista_link} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 font-bold text-sky-700 hover:text-sky-900">Entrar na entrevista <ExternalLink className="h-3 w-3" /></a>}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">

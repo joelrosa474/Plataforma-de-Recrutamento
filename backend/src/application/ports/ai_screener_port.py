@@ -10,9 +10,9 @@ class AIScreenerPort(ABC):
         pass
 
     @abstractmethod
-    def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> tuple[float, str]:
+    def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> tuple[float, str, dict]:
         """
-        Avalia o currículo em profundidade e retorna (score, parecer_justificativa).
+        Avalia o currículo em profundidade e retorna (score, parecer_justificativa, explicação estruturada).
         """
         pass
     

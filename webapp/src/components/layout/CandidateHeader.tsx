@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Briefcase, FileText, User, LogOut, Menu, X } from "lucide-react";
 import { getSession, SessionUser } from "@/lib/api";
 import { NotificationsPanel } from "@/components/notifications/NotificationsPanel";
+import logoSalu from "@/fotos/Salú (2).png";
 
 export function CandidateHeader() {
   const pathname = usePathname();
@@ -52,12 +54,7 @@ export function CandidateHeader() {
           </button>
 
           <Link href="/" className="flex items-center gap-2.5 sm:gap-3" aria-label="Página inicial">
-            <span className="flex h-9 w-9 sm:h-10 sm:w-10 items-end justify-center gap-1 rounded-lg bg-sky-50 px-1.5 py-1.5 sm:px-2 sm:py-2">
-              <span className="h-5 sm:h-6 w-1.5 sm:w-2 rounded-full bg-sky-600" />
-              <span className="h-7 sm:h-8 w-1.5 sm:w-2 rounded-full bg-sky-500" />
-              <span className="h-4 sm:h-5 w-1.5 sm:w-2 rounded-full bg-sky-400" />
-            </span>
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950">É Salú</span>
+            <Image src={logoSalu} alt="Salú" priority className="h-11 w-auto sm:h-14" />
           </Link>
 
           {/* Navegação Desktop */}

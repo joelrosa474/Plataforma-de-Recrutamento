@@ -60,6 +60,7 @@ class UsuarioResponse(BaseModel):
     competencias: List[str] = []
     linkedin_url: str | None = None
     github_url: str | None = None
+    perfil_publico_talentos: bool = False
 
 
 class TokenResponse(BaseModel):
@@ -75,6 +76,7 @@ class AtualizarPerfilRequest(BaseModel):
     competencias: List[str] = []
     linkedin_url: str | None = None
     github_url: str | None = None
+    perfil_publico_talentos: bool = False
 
     @field_validator("nome")
     @classmethod
@@ -237,6 +239,7 @@ def atualizar_meu_perfil(request: AtualizarPerfilRequest, current_user = Depends
     current_user.competencias = request.competencias
     current_user.linkedin_url = request.linkedin_url
     current_user.github_url = request.github_url
+    current_user.perfil_publico_talentos = request.perfil_publico_talentos
     return UsuarioRepositorySQLAlchemy(db).salvar(current_user)
 
 
@@ -245,6 +248,14 @@ def perfil_candidato(candidato_id: int, current_user = Depends(get_current_empre
     candidato = UsuarioRepositorySQLAlchemy(db).buscar_por_id(candidato_id)
     if not candidato or candidato.tipo_perfil != "Candidato":
         raise HTTPException(status_code=404, detail="Candidato não encontrado")
+    candidatura_da_empresa = (
+        db.query(CandidaturaModel)
+        .join(VagaModel, CandidaturaModel.vaga_id == VagaModel.id)
+        .filter(CandidaturaModel.candidato_id == candidato_id, VagaModel.empresa_id == current_user.id)
+        .first()
+    )
+    if not candidatura_da_empresa and not candidato.perfil_publico_talentos:
+        raise HTTPException(status_code=403, detail="Este candidato não autorizou a consulta do perfil no Banco de Talentos.")
     return candidato
 
 

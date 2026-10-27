@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
+import logoSalu from "@/fotos/Salú (2).png";
 
 interface SidebarProps {
   role: "admin" | "company" | "candidate";
@@ -36,6 +38,7 @@ export function Sidebar({ role }: SidebarProps) {
       { name: "Painel de Controlo", href: "/company/dashboard", icon: LayoutDashboard },
       { name: "Minhas Vagas", href: "/company/jobs", icon: Briefcase },
       { name: "Candidatos (ATS)", href: "/company/candidates", icon: Users },
+      { name: "Banco de Talentos", href: "/company/talents", icon: Users },
       { name: "Perfil da Empresa", href: "/company/profile", icon: Briefcase },
       { name: "Configurações", href: "/company/settings", icon: Settings },
     ];
@@ -79,12 +82,7 @@ export function Sidebar({ role }: SidebarProps) {
         {/* Cabeçalho da Sidebar */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-200">
           <Link href="/" onClick={close} className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-end justify-center gap-0.5 rounded-lg bg-sky-50 px-1.5 py-1.5">
-              <span className="h-4 w-1.5 rounded-full bg-sky-600" />
-              <span className="h-6 w-1.5 rounded-full bg-sky-500" />
-              <span className="h-3.5 w-1.5 rounded-full bg-sky-400" />
-            </span>
-            <span className="text-xl font-bold tracking-tight text-slate-950">É Salú</span>
+            <Image src={logoSalu} alt="Salú" priority className="h-11 w-auto" />
           </Link>
 
           {/* Botão de Fechar para Mobile / Tablet */}

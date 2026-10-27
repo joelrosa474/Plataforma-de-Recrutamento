@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from src.domain.entities.vaga import Vaga
 from src.application.use_cases.gerenciar_vagas import GerenciarVagasUseCase
 from src.infrastructure.repositories.vaga_repository_sqlalchemy import VagaRepositorySQLAlchemy
-from src.adapters.api.dependencies import get_current_empresa
+from src.adapters.api.dependencies import get_current_empresa, get_current_candidato
 from src.infrastructure.database.config import get_db
-from src.infrastructure.database.models import UsuarioModel
+from src.infrastructure.database.models import CandidaturaModel, UsuarioModel
 from src.adapters.api.notificacoes_router import criar_notificacao
 
 router = APIRouter(prefix="/api/vagas", tags=["Vagas"])
@@ -32,6 +32,45 @@ class PaginaVagasResponse(BaseModel):
     total: int
     pagina: int
     tamanho: int
+
+
+class VagaRecomendadaResponse(Vaga):
+    match_score: float
+    motivos: List[str]
+
+
+def normalizar(texto: str | None) -> str:
+    return (texto or "").lower().strip()
+
+
+def recomendar_vaga(vaga: Vaga, competencias: List[str], experiencia: str | None, localizacao: str | None) -> tuple[float, List[str]]:
+    """Calcula uma recomendação determinística e explicável, sem inferir dados sensíveis."""
+    competencias_normalizadas = [normalizar(item) for item in competencias if normalizar(item)]
+    experiencia_normalizada = normalizar(experiencia)
+    requisitos = [normalizar(item) for item in vaga.requisitos if normalizar(item)]
+    correspondentes = [
+        requisito for requisito in requisitos
+        if any(requisito in competencia or competencia in requisito for competencia in competencias_normalizadas)
+    ]
+    score = (70 * len(correspondentes) / len(requisitos)) if requisitos else 35
+    motivos: List[str] = []
+    if correspondentes:
+        motivos.append(f"Competências alinhadas: {', '.join(vaga.requisitos[requisitos.index(item)] for item in correspondentes[:3])}.")
+
+    if normalizar(vaga.area) and normalizar(vaga.area) in experiencia_normalizada:
+        score += 10
+        motivos.append(f"A sua experiência menciona a área de {vaga.area}.")
+
+    mesma_localizacao = bool(normalizar(localizacao) and normalizar(vaga.localizacao) and normalizar(localizacao) in normalizar(vaga.localizacao))
+    if normalizar(vaga.modalidade) == "remoto" or mesma_localizacao:
+        score += 15
+        motivos.append("A modalidade ou localização é compatível com o seu perfil.")
+
+    if experiencia_normalizada:
+        score += 5
+    if not motivos:
+        motivos.append("Recomendação baseada nas informações atualmente preenchidas no seu perfil.")
+    return round(min(score, 100), 1), motivos
 
 @router.post("/", response_model=Vaga)
 def criar_vaga(request: CriarVagaRequest, current_user = Depends(get_current_empresa), use_case: GerenciarVagasUseCase = Depends(get_vagas_use_case), db: Session = Depends(get_db)):
@@ -79,6 +118,27 @@ def buscar_vagas(
         and (not area_normalizada or area_normalizada in (vaga.area or "").lower())]
     inicio = (pagina - 1) * tamanho
     return {"items": vagas[inicio:inicio + tamanho], "total": len(vagas), "pagina": pagina, "tamanho": tamanho}
+
+
+@router.get("/recomendadas", response_model=List[VagaRecomendadaResponse])
+def listar_vagas_recomendadas(
+    limite: int = Query(default=3, ge=1, le=10),
+    current_user=Depends(get_current_candidato),
+    use_case: GerenciarVagasUseCase = Depends(get_vagas_use_case),
+    db: Session = Depends(get_db),
+):
+    """Sugere vagas abertas ainda não candidatas, com critérios que o candidato pode compreender."""
+    vagas_candidatadas = {
+        candidatura.vaga_id
+        for candidatura in db.query(CandidaturaModel.vaga_id).filter(CandidaturaModel.candidato_id == current_user.id).all()
+    }
+    recomendacoes = []
+    for vaga in use_case.listar_vagas_abertas():
+        if vaga.id in vagas_candidatadas:
+            continue
+        score, motivos = recomendar_vaga(vaga, current_user.competencias, current_user.experiencia, current_user.localizacao)
+        recomendacoes.append(VagaRecomendadaResponse(**vaga.model_dump(), match_score=score, motivos=motivos))
+    return sorted(recomendacoes, key=lambda vaga: (-vaga.match_score, vaga.id or 0))[:limite]
 
 @router.get("/{vaga_id}", response_model=Vaga)
 def buscar_vaga(vaga_id: int, use_case: GerenciarVagasUseCase = Depends(get_vagas_use_case)):

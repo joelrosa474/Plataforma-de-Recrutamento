@@ -17,6 +17,7 @@ class UsuarioModel(Base):
     competencias = Column(Text, default="[]")
     linkedin_url = Column(String, nullable=True)
     github_url = Column(String, nullable=True)
+    perfil_publico_talentos = Column(Integer, default=0, nullable=False)
 
     def get_competencias_list(self):
         try:
@@ -60,8 +61,12 @@ class CandidaturaModel(Base):
     fase_atual = Column(String, default="Triagem")
     match_score = Column(Float, nullable=True)
     feedback_ia = Column(Text, nullable=True)
+    analise_match_ia = Column(Text, nullable=True)
     curriculo_path = Column(String, nullable=True)
     curriculo_nome = Column(String, nullable=True)
+    entrevista_data = Column(DateTime, nullable=True)
+    entrevista_link = Column(String, nullable=True)
+    entrevista_notas = Column(Text, nullable=True)
     data_aplicacao = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class NotificacaoModel(Base):

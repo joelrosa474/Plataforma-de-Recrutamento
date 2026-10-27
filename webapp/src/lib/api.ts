@@ -10,6 +10,7 @@ export type ApiJob = {
   area?: string | null;
   data_criacao: string;
 };
+export type RecommendedJob = ApiJob & { match_score: number; motivos: string[] };
 
 export type ApiApplication = {
   id: number;
@@ -18,7 +19,16 @@ export type ApiApplication = {
   fase_atual: "Triagem" | "Entrevista" | "Contratado" | "Reprovado";
   match_score: number | null;
   feedback_ia?: string | null;
+  analise_match_ia?: {
+    competencias_alinhadas: string[];
+    requisitos_em_falta: string[];
+    evidencias_experiencia: string[];
+    recomendacao: string;
+  } | null;
   curriculo_nome?: string | null;
+  entrevista_data?: string | null;
+  entrevista_link?: string | null;
+  entrevista_notas?: string | null;
   tem_curriculo?: boolean;
   data_aplicacao: string;
   candidato?: {
@@ -74,7 +84,9 @@ export type AdminJob = {
 };
 export type Notification = { id: number; titulo: string; mensagem: string; lida: boolean; data_criacao: string };
 
-export type SessionUser = { id: number; nome: string; email: string; tipo_perfil: string; localizacao?: string | null; experiencia?: string | null; competencias?: string[]; linkedin_url?: string | null; github_url?: string | null };
+export type SessionUser = { id: number; nome: string; email: string; tipo_perfil: string; localizacao?: string | null; experiencia?: string | null; competencias?: string[]; linkedin_url?: string | null; github_url?: string | null; perfil_publico_talentos?: boolean };
+export type Talent = Pick<SessionUser, "id" | "nome" | "email" | "localizacao" | "experiencia" | "competencias" | "linkedin_url" | "github_url">;
+export type TalentPage = { items: Talent[]; total: number; pagina: number; tamanho: number };
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -118,6 +130,7 @@ export const api = {
     Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, String(value)); });
     return request<JobPage>(`/api/vagas/busca?${params.toString()}`);
   },
+  recommendedJobs: (token?: string) => request<RecommendedJob[]>("/api/vagas/recomendadas", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   getJob: (id: number) => request<ApiJob>(`/api/vagas/${id}`),
   myJobs: (token?: string) => request<ApiJob[]>("/api/vagas/minhas", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   createJob: (data: Pick<ApiJob, "titulo" | "descricao" | "requisitos" | "localizacao" | "modalidade" | "area">, token?: string) =>
@@ -147,9 +160,15 @@ export const api = {
     return res.blob();
   },
   updateApplicationPhase: (id: number, fase_atual: ApiApplication["fase_atual"], token?: string) => request<ApiApplication>(`/api/candidaturas/${id}/fase`, { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ fase_atual }) }),
+  scheduleInterview: (id: number, data: { entrevista_data: string; entrevista_link?: string; entrevista_notas?: string }, token?: string) => request<ApiApplication>(`/api/candidaturas/${id}/entrevista`, { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) }),
   myProfile: (token?: string) => request<SessionUser>("/api/auth/me", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-  updateProfile: (data: Pick<SessionUser, "nome" | "localizacao" | "experiencia" | "competencias" | "linkedin_url" | "github_url">, token?: string) => request<SessionUser>("/api/auth/me", { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) }),
+  updateProfile: (data: Pick<SessionUser, "nome" | "localizacao" | "experiencia" | "competencias" | "linkedin_url" | "github_url" | "perfil_publico_talentos">, token?: string) => request<SessionUser>("/api/auth/me", { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(data) }),
   candidateProfile: (id: number, token?: string) => request<SessionUser>(`/api/auth/candidatos/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+  searchTalents: (filters: { termo?: string; localizacao?: string; pagina?: number } = {}, token?: string) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, String(value)); });
+    return request<TalentPage>(`/api/talentos/?${params.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  },
   updateEmail: (email: string, senha_atual: string, token?: string) => request<SessionUser>("/api/auth/me/email", { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ email, senha_atual }) }),
   updatePassword: (senha_atual: string, nova_senha: string, token?: string) => request<void>("/api/auth/me/senha", { method: "PUT", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ senha_atual, nova_senha }) }),
   deleteAccount: (senha_atual: string, token?: string) => request<void>("/api/auth/me", { method: "DELETE", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ senha_atual }) }),

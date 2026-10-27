@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.adapters.api import vagas_router, candidaturas_router, auth_router, admin_router, notificacoes_router
+from src.adapters.api import vagas_router, candidaturas_router, auth_router, admin_router, notificacoes_router, talentos_router
 from src.infrastructure.database.config import engine, Base, migrate_sqlite_schema, check_db_health
 from src.infrastructure.database import models  # Importa os modelos para registar no Base
 
@@ -159,6 +159,7 @@ app.include_router(vagas_router.router)
 app.include_router(candidaturas_router.router)
 app.include_router(admin_router.router)
 app.include_router(notificacoes_router.router)
+app.include_router(talentos_router.router)
 
 
 @app.get("/")

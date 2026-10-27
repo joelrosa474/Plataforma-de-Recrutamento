@@ -289,3 +289,18 @@ class EmailService(EmailServicePort):
         """
         corpo_texto = f"Olá {nome_candidato},\n\nA sua candidatura para '{titulo_vaga}' avançou para a fase: {nova_fase}.\nAceda ao portal para acompanhar."
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
+
+    def enviar_convite_entrevista(self, destinatario: str, nome_candidato: str, titulo_vaga: str, data_hora: str, link: Optional[str], notas: Optional[str]) -> bool:
+        """Envia a confirmação imediata do agendamento de entrevista."""
+        assunto = f"Entrevista agendada: {titulo_vaga}"
+        link_html = f'<p><a href="{link}" class="btn" target="_blank">Entrar na entrevista</a></p>' if link else ""
+        notas_html = f"<p><strong>Informações da empresa:</strong><br>{notas}</p>" if notas else ""
+        corpo_html = f"""
+        <h2 style="color: #0f172a; margin-top: 0;">Olá, {nome_candidato}!</h2>
+        <p>A sua entrevista para a vaga <strong>{titulo_vaga}</strong> foi agendada.</p>
+        <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 16px; margin: 20px 0; border-radius: 4px;"><strong>Data e hora:</strong> {data_hora}</div>
+        {link_html}{notas_html}
+        <p>Confirme os detalhes no portal e prepare-se para a conversa. Boa sorte!</p>
+        """
+        corpo_texto = f"Olá {nome_candidato},\n\nA entrevista para '{titulo_vaga}' foi agendada para {data_hora}." + (f"\nLink: {link}" if link else "") + (f"\nInformações: {notas}" if notas else "")
+        return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)

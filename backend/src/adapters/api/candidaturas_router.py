@@ -1,10 +1,11 @@
+import json
 import logging
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, HTTPException, File, Form, UploadFile, Depends, BackgroundTasks
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from src.domain.entities.candidatura import Candidatura
@@ -26,6 +27,16 @@ router = APIRouter(prefix="/api/candidaturas", tags=["Candidaturas"])
 storage_service = StorageService()
 ai_screener = GeminiScreenerAdapter()
 email_service = EmailService()
+
+
+def carregar_analise_match(valor: Optional[str]) -> Optional[dict[str, Any]]:
+    if not valor:
+        return None
+    try:
+        analise = json.loads(valor)
+        return analise if isinstance(analise, dict) else None
+    except json.JSONDecodeError:
+        return None
 
 
 def get_candidaturas_use_case(db: Session = Depends(get_db)):
@@ -89,7 +100,11 @@ class CandidaturaDetalhadaResponse(BaseModel):
     fase_atual: str
     match_score: Optional[float] = None
     feedback_ia: Optional[str] = None
+    analise_match_ia: Optional[dict[str, Any]] = None
     curriculo_nome: Optional[str] = None
+    entrevista_data: Optional[datetime] = None
+    entrevista_link: Optional[str] = None
+    entrevista_notas: Optional[str] = None
     tem_curriculo: bool = False
     data_aplicacao: datetime
     candidato: Optional[CandidatoResumo] = None
@@ -194,7 +209,11 @@ def listar_candidatos_da_vaga(
             fase_atual=c.fase_atual,
             match_score=c.match_score,
             feedback_ia=c.feedback_ia,
+            analise_match_ia=carregar_analise_match(c.analise_match_ia),
             curriculo_nome=c.curriculo_nome,
+            entrevista_data=c.entrevista_data,
+            entrevista_link=c.entrevista_link,
+            entrevista_notas=c.entrevista_notas,
             tem_curriculo=tem_curriculo,
             data_aplicacao=c.data_aplicacao,
             candidato=candidato_resumo
@@ -243,6 +262,31 @@ class AtualizarFaseRequest(BaseModel):
     fase_atual: str
 
 
+class AgendarEntrevistaRequest(BaseModel):
+    entrevista_data: datetime
+    entrevista_link: Optional[str] = Field(default=None, max_length=500)
+    entrevista_notas: Optional[str] = Field(default=None, max_length=1000)
+
+    @field_validator("entrevista_data")
+    @classmethod
+    def validar_data_futura(cls, valor: datetime) -> datetime:
+        if valor.tzinfo is None:
+            raise ValueError("Indique a data e hora da entrevista com fuso horário.")
+        if valor <= datetime.now(timezone.utc):
+            raise ValueError("A entrevista deve ser agendada para uma data futura.")
+        return valor
+
+    @field_validator("entrevista_link")
+    @classmethod
+    def validar_link(cls, valor: Optional[str]) -> Optional[str]:
+        if not valor:
+            return None
+        link = valor.strip()
+        if not link.startswith(("https://", "http://")):
+            raise ValueError("O link da entrevista deve começar com http:// ou https://")
+        return link
+
+
 @router.put("/{candidatura_id}/fase", response_model=Candidatura)
 def atualizar_fase(
     candidatura_id: int,
@@ -274,4 +318,35 @@ def atualizar_fase(
                 request.fase_atual
             )
 
+    return atualizada
+
+
+@router.put("/{candidatura_id}/entrevista", response_model=Candidatura)
+def agendar_entrevista(
+    candidatura_id: int,
+    request: AgendarEntrevistaRequest,
+    background_tasks: BackgroundTasks,
+    current_user=Depends(get_current_empresa),
+    use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case),
+):
+    candidatura = use_case.candidatura_repo.buscar_por_id(candidatura_id)
+    vaga = use_case.vaga_repo.buscar_por_id(candidatura.vaga_id) if candidatura else None
+    if not vaga or vaga.empresa_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Candidatura não encontrada")
+    if candidatura.fase_atual in {"Contratado", "Reprovado"}:
+        raise HTTPException(status_code=400, detail="Não é possível agendar entrevista para uma candidatura finalizada.")
+
+    if candidatura.fase_atual == "Triagem":
+        candidatura.avancar_fase("Entrevista")
+    candidatura.entrevista_data = request.entrevista_data
+    candidatura.entrevista_link = request.entrevista_link
+    candidatura.entrevista_notas = request.entrevista_notas
+    atualizada = use_case.candidatura_repo.salvar(candidatura)
+    db = use_case.candidatura_repo.db
+    data_formatada = request.entrevista_data.astimezone(timezone.utc).strftime("%d/%m/%Y às %H:%M UTC")
+    criar_notificacao(db, atualizada.candidato_id, "Entrevista agendada", f"A sua entrevista para '{vaga.titulo}' foi agendada para {data_formatada}.")
+    db.commit()
+    candidato = db.query(UsuarioModel).filter(UsuarioModel.id == atualizada.candidato_id).first()
+    if candidato and candidato.email:
+        background_tasks.add_task(email_service.enviar_convite_entrevista, candidato.email, candidato.nome or "Candidato", vaga.titulo, data_formatada, request.entrevista_link, request.entrevista_notas)
     return atualizada
