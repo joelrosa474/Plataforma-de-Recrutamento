@@ -24,6 +24,10 @@ O logotipo da É Salú funciona como atalho para a página principal da área at
 | Área da empresa | Painel da empresa |
 | Área do administrador | Painel do administrador |
 
+### 2.1 Aparência: modo claro e escuro
+
+Use o botão com o ícone de lua ou sol no canto inferior esquerdo para alternar entre modo claro e modo escuro. A preferência é guardada neste navegador e, na primeira visita, a plataforma segue a preferência de aparência do seu dispositivo.
+
 ## 3. Guia para candidatos
 
 ### 3.1 Completar o perfil profissional

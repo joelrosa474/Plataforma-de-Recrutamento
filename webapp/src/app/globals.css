@@ -25,6 +25,23 @@
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
   }
+
+  .dark {
+    --background: 222.2 47.4% 8%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 35% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 35% 11%;
+    --popover-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 96.1%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 70%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 96.1%;
+    --border: 217.2 32.6% 25%;
+    --input: 217.2 32.6% 25%;
+  }
 }
 
 @layer base {
@@ -32,6 +49,42 @@
     @apply border-border;
   }
   body {
-    @apply bg-slate-50 text-foreground;
+    @apply bg-background text-foreground;
+    transition: background-color 180ms ease, color 180ms ease;
   }
+}
+
+/* A aplicação já utiliza a paleta slate de forma extensa. Estes ajustes globais
+   mantêm os ecrãs existentes legíveis em modo escuro sem duplicar estilos por rota. */
+.dark [class*="bg-white"],
+.dark [class*="bg-slate-50"] {
+  background-color: #0f172a !important;
+}
+
+.dark [class*="bg-slate-100"] {
+  background-color: #1e293b !important;
+}
+
+.dark [class*="border-slate-"],
+.dark [class*="border-gray-"] {
+  border-color: #334155 !important;
+}
+
+.dark [class*="text-slate-9"],
+.dark [class*="text-slate-8"] {
+  color: #f8fafc !important;
+}
+
+.dark [class*="text-slate-7"],
+.dark [class*="text-slate-6"],
+.dark [class*="text-slate-5"],
+.dark [class*="text-slate-4"] {
+  color: #cbd5e1 !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #0f172a;
+  color: #f8fafc;
 }

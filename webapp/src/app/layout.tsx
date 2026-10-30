@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "É Salú - Plataforma de Recrutamento RH",
@@ -19,9 +20,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-AO">
-      <body className="font-sans antialiased text-slate-900 bg-slate-50 selection:bg-sky-500 selection:text-white">
+    <html lang="pt-AO" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "(function(){try{var t=localStorage.getItem('rh-theme');var d=t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light'}catch(e){}})()",
+          }}
+        />
+      </head>
+      <body className="font-sans antialiased bg-background text-foreground selection:bg-sky-500 selection:text-white">
         {children}
+        <ThemeToggle />
       </body>
     </html>
   );
