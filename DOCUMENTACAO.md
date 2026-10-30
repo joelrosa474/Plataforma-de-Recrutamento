@@ -188,11 +188,14 @@ erDiagram
 Documentação interativa disponível localmente em `http://localhost:8000/docs` ou em produção via Swagger.
 
 ### Autenticação & Recuperação (`/api/auth`)
-- `POST /api/auth/register`: Criar conta com confirmação de senha obrigatória.
-- `POST /api/auth/login`: Autenticação e emissão do token JWT.
-- `POST /api/auth/forgot-password`: Solicitar link de recuperação de senha por e-mail.
-- `POST /api/auth/reset-password`: Redefinir senha usando token criptográfico seguro.
-- `GET /api/auth/me`: Obter dados do utilizador autenticado.
+- `POST /api/auth/registrar`: Criar conta de candidato ou empresa. A palavra-passe deve ter entre 8 e 72 bytes.
+- `POST /api/auth/login`: Autenticar com formulário OAuth2 (`username` e `password`), emitir token JWT e criar cookie de sessão HttpOnly.
+- `POST /api/auth/logout`: Terminar a sessão no navegador.
+- `POST /api/auth/recuperar-senha`: Solicitar link de recuperação por e-mail sem revelar se a conta existe.
+- `POST /api/auth/redefinir-senha`: Redefinir a palavra-passe com token de recuperação válido.
+- `GET` e `PUT /api/auth/me`: Consultar e atualizar o perfil autenticado, incluindo a autorização para aparecer no Banco de Talentos.
+- `GET /api/auth/candidatos/{candidato_id}`: Consultar o perfil de um candidato (empresas; requer consentimento público ou candidatura à empresa).
+- `PUT /api/auth/me/email`, `PUT /api/auth/me/senha` e `DELETE /api/auth/me`: Gerir e-mail, palavra-passe e conta.
 
 ### Vagas (`/api/vagas`)
 - `GET /api/vagas`: Listar vagas abertas com suporte a paginação e filtros (`termo`, `localizacao`, `modalidade`, `area`).
@@ -205,22 +208,32 @@ Documentação interativa disponível localmente em `http://localhost:8000/docs`
 - `POST /api/candidaturas`: Submeter candidatura com upload de PDF.
 - `GET /api/candidaturas/minhas`: Histórico de candidaturas do candidato logado.
 - `GET /api/candidaturas/vaga/{vaga_id}`: Lista de candidatos da vaga (restrito ao recrutador proprietário).
-- `PATCH /api/candidaturas/{id}/fase`: Atualizar fase do candidato e disparar notificação.
+- `PUT /api/candidaturas/{id}/fase`: Atualizar fase do candidato e disparar notificação.
 - `GET /api/candidaturas/{id}/curriculo`: Download seguro do PDF do currículo.
+- `PUT /api/candidaturas/{id}/entrevista`: Agendar ou reagendar entrevista; valida data futura, link HTTP(S) opcional e envia notificação/e-mail.
+- `POST /api/candidaturas/{id}/roteiro-entrevista`: Gerar roteiro de entrevista com IA para a candidatura.
+- `PUT /api/candidaturas/{id}/roteiro-entrevista`: Guardar roteiro, notas e avaliações preparados pelo recrutador.
+
+### Recomendações, vagas e Banco de Talentos
+- `GET /api/vagas/busca`: Pesquisa paginada de vagas abertas com filtros.
+- `GET /api/vagas/recomendadas`: Sugestões explicáveis para o candidato autenticado, calculadas a partir de competências, experiência e localização.
+- `GET /api/vagas/minhas`: Vagas publicadas pela empresa autenticada.
+- `PUT /api/vagas/{id}/pausar` e `PUT /api/vagas/{id}/fechar`: Alterar o estado de uma vaga da própria empresa.
+- `GET /api/talentos`: Pesquisa paginada no Banco de Talentos, disponível para empresas e limitada a candidatos que consentiram a exposição do perfil.
 
 ### Notificações em Tempo Real (`/api/notificacoes`)
 - `GET /api/notificacoes/stream`: Conexão contínua Server-Sent Events (SSE) autenticada via token de autorização.
-- `GET /api/notificacoes`: Listagem de notificações armazenadas.
-- `PATCH /api/notificacoes/{id}/ler`: Marcar notificação individual como lida.
-- `POST /api/notificacoes/marcar-todas-lidas`: Marcar todas as notificações do usuário como lidas.
+- `GET /api/notificacoes/`: Listagem de notificações armazenadas.
+- `PUT /api/notificacoes/{id}/lida`: Marcar notificação individual como lida.
+- `PUT /api/notificacoes/ler-todas`: Marcar todas as notificações do utilizador como lidas.
 
 ### Administração & Métricas (`/api/admin`)
-- `GET /api/admin/summary`: Resumo analítico com indicadores de IA, taxas de conversão e totais.
-- `GET /api/admin/users`: Listagem completa de utilizadores da plataforma.
-- `PATCH /api/admin/users/{id}/role`: Alterar tipo de perfil de utilizador.
-- `DELETE /api/admin/users/{id}`: Eliminar utilizador.
-- `GET /api/admin/jobs`: Listagem e auditoria de todas as vagas publicadas.
-- `PATCH /api/admin/jobs/{id}/status`: Moderação do status de uma vaga.
+- `GET /api/admin/resumo`: Resumo analítico com indicadores de IA, taxas de conversão e totais.
+- `GET /api/admin/usuarios`: Listagem completa de utilizadores da plataforma.
+- `PUT /api/admin/usuarios/{id}/perfil`: Alterar tipo de perfil de utilizador.
+- `DELETE /api/admin/usuarios/{id}`: Eliminar utilizador.
+- `GET /api/admin/vagas`: Listagem e auditoria de todas as vagas publicadas.
+- `PUT /api/admin/vagas/{id}/status`: Moderação do status de uma vaga.
 
 ---
 
@@ -238,7 +251,7 @@ Documentação interativa disponível localmente em `http://localhost:8000/docs`
 ## 8. Execução e Testes Automatizados
 
 ### Rodar a Suite de Testes do Backend
-O backend conta com 35 testes automatizados cobrindo autenticação, use cases, regras de negócio, serviços de e-mail e streaming SSE:
+O backend conta com 36 testes automatizados cobrindo autenticação, casos de uso, regras de negócio, serviços de e-mail e streaming SSE:
 
 ```powershell
 cd backend
@@ -255,4 +268,6 @@ npm run build
 
 ---
 
-*Documentação mantida pela equipa de engenharia do projeto **É Salú**.*
+Para instruções orientadas ao uso da plataforma, consulte o [Manual do Utilizador](MANUAL_USUARIO.md).
+
+*Documentação atualizada em 30 de outubro de 2026 pela equipa de engenharia do projeto **É Salú**.*

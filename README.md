@@ -6,6 +6,7 @@ Plataforma moderna de atração e gestão de talentos para Angola, equipada com 
 - ⚙️ **Backend API em Produção (Render):** [https://rh-backend-api-ulcu.onrender.com](https://rh-backend-api-ulcu.onrender.com)
 - 📘 **Documentação Oficial Completa:** Consulte [DOCUMENTACAO.md](DOCUMENTACAO.md) para a arquitetura, modelo de dados e referência da API.
 - 📊 **Livro de Diagramas Técnicos:** Consulte [DIAGRAMAS.md](DIAGRAMAS.md) com todos os 9 diagramas Mermaid de fluxo, banco de dados e arquitetura.
+- 👤 **Manual do Utilizador:** Consulte [MANUAL_USUARIO.md](MANUAL_USUARIO.md) para os fluxos de candidatos, empresas e administradores.
 - 🚀 **Guia de Implantação e Deploy:** Consulte [DEPLOY.md](DEPLOY.md).
 
 ---
@@ -105,4 +106,4 @@ A cada `push` ou `pull request`, a esteira valida:
 
 ## Guia de Deploy em Produção
 
-Para instruções detalhadas de publicação com **Vercel** (frontend), **Render / Railway** (backend com PostgreSQL) e **Cloudflare**, consulte o guia completo em [DEPLOY.md](file:///c:/Users/LENOVO/Desktop/Plataforma%20de%20recrutamento%20RH/DEPLOY.md).
+Para instruções detalhadas de publicação com **Vercel** (frontend), **Render / Railway** (backend com PostgreSQL) e **Cloudflare**, consulte o guia completo em [DEPLOY.md](DEPLOY.md).
