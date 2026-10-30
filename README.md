@@ -7,6 +7,7 @@ Plataforma moderna de atração e gestão de talentos para Angola, equipada com 
 - 📘 **Documentação Oficial Completa:** Consulte [DOCUMENTACAO.md](DOCUMENTACAO.md) para a arquitetura, modelo de dados e referência da API.
 - 📊 **Livro de Diagramas Técnicos:** Consulte [DIAGRAMAS.md](DIAGRAMAS.md) com todos os 9 diagramas Mermaid de fluxo, banco de dados e arquitetura.
 - 👤 **Manual do Utilizador:** Consulte [MANUAL_USUARIO.md](MANUAL_USUARIO.md) para os fluxos de candidatos, empresas e administradores.
+- 🌗 **Tema da interface:** A plataforma oferece modo claro e escuro, com preferência guardada no navegador.
 - 🚀 **Guia de Implantação e Deploy:** Consulte [DEPLOY.md](DEPLOY.md).
 
 ---
@@ -26,6 +27,7 @@ JWT_SECRET_KEY=change-me-to-a-long-random-secret
 ADMIN_EMAILS=admin@empresa.com
 DATABASE_URL=sqlite:///./recrutamento.db
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+API_ORIGIN=http://localhost:8000,http://127.0.0.1:8000
 APP_ENV=development
 ```
 
@@ -60,6 +62,7 @@ O frontend abre em `http://localhost:3000` e a API em `http://localhost:8000`.
 - definir `JWT_SECRET_KEY` forte e única por ambiente
 - usar `DATABASE_URL` correta para PostgreSQL/SQLite em produção
 - restringir `CORS_ORIGINS` ao domínio do frontend real
+- definir `API_ORIGIN` com o domínio HTTPS público do backend
 - definir `APP_ENV=production`
 - não versionar `.env` real nem segredos em repositório
 - manter `ADMIN_EMAILS` limitado a contas confiáveis

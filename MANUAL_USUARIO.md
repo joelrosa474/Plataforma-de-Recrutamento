@@ -169,4 +169,4 @@ Pode usar perguntas rápidas ou escrever dúvidas sobre:
 
 ---
 
-*Manual atualizado em 28 de outubro de 2026.*
+*Manual atualizado em 30 de outubro de 2026.*

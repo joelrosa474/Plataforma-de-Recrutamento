@@ -57,7 +57,7 @@ graph TD
 | Camada | Tecnologia | Finalidade |
 |---|---|---|
 | **Frontend** | Next.js 16 (React 18, TypeScript) | Renderização híbrida rápida e SEO |
-| **Estilização** | Tailwind CSS + Lucide Icons | Design moderno, responsivo e adaptável a telas de 320px a 4K |
+| **Estilização** | Tailwind CSS + Lucide Icons | Design moderno, responsivo, adaptável a telas de 320px a 4K e com modo claro/escuro persistente |
 | **Backend** | FastAPI + Python 3.12+ | API REST assíncrona de alta performance |
 | **Arquitetura Backend** | Clean Architecture / Portas & Adaptadores | Separação estrita de regras de negócio e infraestrutura |
 | **Base de Dados** | PostgreSQL (Render) / SQLite | Armazenamento relacional com suporte a pools de conexão |
@@ -267,6 +267,7 @@ Em erros de validação (`422`), `error.fields` contém os campos inválidos. O 
 4. **Isolamento de Segredos:** Arquivos `.env` protegidos no `.gitignore` para prevenir vazamentos acidentais no repositório de código público.
 5. **Sessão e autorização:** O JWT de sessão é mantido em cookie `HttpOnly`; o navegador não o persiste no `localStorage`. Rotas protegidas aplicam perfis de Candidato, Empresa ou Administrador e verificam a posse dos recursos relevantes.
 6. **Proteção contra pedidos cross-site:** Pedidos que alteram dados e trazem o cabeçalho `Origin` só são aceites quando a origem constar em `CORS_ORIGINS` ou `API_ORIGIN`. Em produção, configure `API_ORIGIN` com o domínio público do backend; o cookie usa `SameSite=None` e `Secure` para suportar o frontend autorizado num domínio distinto.
+7. **Preferência visual:** O tema claro ou escuro é aplicado antes da renderização da interface e guardado apenas no navegador, sem associar essa preferência à conta nem à sessão.
 
 ---
 

@@ -29,6 +29,7 @@ Este guia explica passo a passo como colocar a **Plataforma de Recrutamento RH**
    | `JWT_SECRET_KEY` | String aleatória longa e segura (`openssl rand -hex 32`) |
    | `ADMIN_EMAILS` | `rosa03@gmail.com` |
    | `CORS_ORIGINS` | `https://plataforma-de-recrutamento-rouge.vercel.app` |
+   | `API_ORIGIN` | `https://rh-backend-api-ulcu.onrender.com` |
    | `FRONTEND_URL` | `https://plataforma-de-recrutamento-rouge.vercel.app` |
    | `RESEND_API_KEY` | *(Opcional)* Chave do [Resend](https://resend.com) para e-mails |
 
@@ -55,7 +56,7 @@ Para ligar ao backend:
 
 ## Passo 3: CORS já configurado ✅
 
-O `CORS_ORIGINS` já inclui `https://plataforma-de-recrutamento-rouge.vercel.app`. Basta definir essa variável no painel do Render conforme a tabela acima.
+O `CORS_ORIGINS` já inclui `https://plataforma-de-recrutamento-rouge.vercel.app`. Defina também `API_ORIGIN` com a URL HTTPS pública do backend, conforme a tabela acima. Estas variáveis permitem pedidos autenticados por cookie apenas a partir das origens confiáveis.
 
 ---
 
@@ -68,7 +69,7 @@ Se possuir um domínio próprio (ex: `empresa.com`):
    - **Frontend**: CNAME `rh` → `cname.vercel-dns.com` (Nuvem Laranja ativa)
    - **Backend**: CNAME `api` → `rh-backend-api.onrender.com` (Nuvem Laranja ativa)
 3. Configure o SSL no Cloudflare como **Full (strict)**.
-4. Atualize `NEXT_PUBLIC_API_URL` e `CORS_ORIGINS` para usarem os novos subdomínios.
+4. Atualize `NEXT_PUBLIC_API_URL`, `CORS_ORIGINS` e `API_ORIGIN` para usarem os novos subdomínios.
 
 ---
 
