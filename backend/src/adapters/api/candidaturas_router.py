@@ -170,10 +170,20 @@ async def aplicar_para_vaga(
 
         return candidatura
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+        message = str(e)
+        if message == "Já existe uma candidatura sua para esta vaga.":
+            raise HTTPException(status_code=409, detail={"code": "duplicate_application", "message": message})
+        if message == "Vaga não encontrada ou não está aberta para novas candidaturas.":
+            raise HTTPException(status_code=409, detail={"code": "job_unavailable", "message": message})
+        if "PDF" in message or "currículo" in message or "10 MB" in message:
+            raise HTTPException(status_code=422, detail={"code": "invalid_resume_file", "message": message})
+        raise HTTPException(status_code=400, detail={"code": "invalid_application", "message": message})
+    except Exception:
         logger.exception("Erro ao aplicar para vaga")
-        raise HTTPException(status_code=500, detail=f"Erro interno ao processar a candidatura: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "application_processing_failed", "message": "Não foi possível processar a candidatura. Tente novamente."},
+        )
 
 
 @router.get("/vaga/{vaga_id}", response_model=List[CandidaturaDetalhadaResponse])

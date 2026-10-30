@@ -121,7 +121,13 @@ def registrar(request: RegistroRequest, use_case: AutenticacaoUseCase = Depends(
         )
         return usuario_criado
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        message = str(e)
+        if message == "Email já cadastrado.":
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "email_already_exists", "message": message},
+            )
+        raise HTTPException(status_code=400, detail={"code": "invalid_registration", "message": message})
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -145,7 +151,9 @@ def login(
             value=token,
             httponly=True,
             secure=is_prod,
-            samesite="lax",
+            # O frontend e a API podem estar em domínios diferentes em produção.
+            # SameSite=None permite o envio controlado pelo CORS; Secure é obrigatório.
+            samesite="none" if is_prod else "lax",
             max_age=86400,
             path="/"
         )
@@ -264,10 +272,10 @@ def atualizar_email(request: AtualizarEmailRequest, current_user = Depends(get_c
     repo = UsuarioRepositorySQLAlchemy(db)
     email = request.email.strip().lower()
     if not Hasher.verificar_senha(request.senha_atual, current_user.senha_hash):
-        raise HTTPException(status_code=400, detail="Palavra-passe atual incorreta")
+        raise HTTPException(status_code=400, detail={"code": "invalid_current_password", "message": "Palavra-passe atual incorreta"})
     existente = repo.buscar_por_email(email)
     if existente and existente.id != current_user.id:
-        raise HTTPException(status_code=400, detail="Este e-mail já está em uso")
+        raise HTTPException(status_code=409, detail={"code": "email_already_exists", "message": "Este e-mail já está em uso"})
     current_user.email = email
     return repo.salvar(current_user)
 

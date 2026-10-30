@@ -13,7 +13,7 @@ export function NotificationsPanel() {
   const loadNotifications = () => {
     const session = getSession();
     if (session) {
-      api.notifications(session.token)
+      api.notifications()
         .then(setItems)
         .catch(() => undefined);
     }
@@ -23,11 +23,11 @@ export function NotificationsPanel() {
     loadNotifications();
 
     const session = getSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     // Conexão em tempo real via Server-Sent Events (SSE)
-    const streamUrl = api.notificationsStreamUrl(session.token);
-    const eventSource = new EventSource(streamUrl);
+    const streamUrl = api.notificationsStreamUrl();
+    const eventSource = new EventSource(streamUrl, { withCredentials: true });
 
     eventSource.addEventListener("notification", (event) => {
       try {
@@ -72,7 +72,7 @@ export function NotificationsPanel() {
     const session = getSession();
     if (!session || item.lida) return;
     try {
-      const updated = await api.readNotification(item.id, session.token);
+      const updated = await api.readNotification(item.id);
       setItems((current) =>
         current.map((entry) => (entry.id === updated.id ? updated : entry))
       );
@@ -85,7 +85,7 @@ export function NotificationsPanel() {
     const session = getSession();
     if (!session) return;
     try {
-      await api.readAllNotifications(session.token);
+      await api.readAllNotifications();
       setItems((current) => current.map((item) => ({ ...item, lida: true })));
     } catch (err) {
       console.error(err);

@@ -237,7 +237,27 @@ Documentação interativa disponível localmente em `http://localhost:8000/docs`
 
 ---
 
-## 7. Práticas de Segurança e Conformidade
+## 7. Formato de Erros da API
+
+Todas as respostas de erro usam uma estrutura previsível para que o frontend apresente uma mensagem adequada e a equipa consiga localizar a ocorrência nos logs:
+
+```json
+{
+  "detail": "Já existe uma candidatura sua para esta vaga.",
+  "error": {
+    "code": "duplicate_application",
+    "message": "Já existe uma candidatura sua para esta vaga.",
+    "status": 409,
+    "request_id": "a1b2c3d4"
+  }
+}
+```
+
+Em erros de validação (`422`), `error.fields` contém os campos inválidos. O `request_id` também é devolvido no cabeçalho `X-Request-Id`; partilhe-o com o suporte para investigar uma falha sem expor dados pessoais. Erros internos devolvem uma mensagem segura, sem detalhes técnicos da infraestrutura.
+
+---
+
+## 8. Práticas de Segurança e Conformidade
 
 1. **Proteção de Credenciais:** As senhas são protegidas com algoritmos de hash modernos via `bcrypt`. Entradas longas são truncadas com segurança de codificação UTF-8 para respeitar o limite padrão de 72 bytes do bcrypt sem falhas.
 2. **Prevenção de Ataques (CORS & Injection):**
@@ -245,10 +265,12 @@ Documentação interativa disponível localmente em `http://localhost:8000/docs`
    - Consultas à base de dados executadas através do ORM SQLAlchemy com *parameter binding*, eliminando riscos de SQL Injection.
 3. **Uploads Seguros:** Apenas ficheiros com cabeçalhos MIME válidos de PDF são aceites na triagem.
 4. **Isolamento de Segredos:** Arquivos `.env` protegidos no `.gitignore` para prevenir vazamentos acidentais no repositório de código público.
+5. **Sessão e autorização:** O JWT de sessão é mantido em cookie `HttpOnly`; o navegador não o persiste no `localStorage`. Rotas protegidas aplicam perfis de Candidato, Empresa ou Administrador e verificam a posse dos recursos relevantes.
+6. **Proteção contra pedidos cross-site:** Pedidos que alteram dados e trazem o cabeçalho `Origin` só são aceites quando a origem constar em `CORS_ORIGINS` ou `API_ORIGIN`. Em produção, configure `API_ORIGIN` com o domínio público do backend; o cookie usa `SameSite=None` e `Secure` para suportar o frontend autorizado num domínio distinto.
 
 ---
 
-## 8. Execução e Testes Automatizados
+## 9. Execução e Testes Automatizados
 
 ### Rodar a Suite de Testes do Backend
 O backend conta com 36 testes automatizados cobrindo autenticação, casos de uso, regras de negócio, serviços de e-mail e streaming SSE:

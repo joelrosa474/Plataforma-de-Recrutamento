@@ -89,17 +89,50 @@ export type SessionUser = { id: number; nome: string; email: string; tipo_perfil
 export type Talent = Pick<SessionUser, "id" | "nome" | "email" | "localizacao" | "experiencia" | "competencias" | "linkedin_url" | "github_url">;
 export type TalentPage = { items: Talent[]; total: number; pagina: number; tamanho: number };
 
+export type ApiFieldError = { loc?: Array<string | number>; msg?: string; type?: string };
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly status: number,
+    public readonly requestId?: string,
+    public readonly fields?: ApiFieldError[],
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+export type ClientSession = { token?: undefined; user: SessionUser };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const options: RequestInit = {
     credentials: "include", // Envia cookies HttpOnly automaticamente
     ...init,
   };
-  const response = await fetch(`${API_URL}${path}`, options);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, options);
+  } catch {
+    throw new ApiError(
+      "Não foi possível ligar ao servidor. Verifique a sua ligação e tente novamente.",
+      "network_error",
+      0,
+    );
+  }
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.detail ?? "Não foi possível concluir a operação.");
+    const error = payload?.error;
+    throw new ApiError(
+      error?.message ?? payload?.detail ?? "Não foi possível concluir a operação.",
+      error?.code ?? "request_failed",
+      error?.status ?? response.status,
+      error?.request_id ?? response.headers.get("X-Request-Id") ?? undefined,
+      error?.fields,
+    );
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -150,13 +183,25 @@ export const api = {
   myApplications: (token?: string) => request<ApiApplication[]>("/api/candidaturas/minhas", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   applicationsByJob: (jobId: number, token?: string) => request<ApiApplication[]>(`/api/candidaturas/vaga/${jobId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
   downloadResume: async (applicationId: number, token?: string): Promise<Blob> => {
-    const res = await fetch(`${API_URL}/api/candidaturas/${applicationId}/curriculo`, {
-      credentials: "include",
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/api/candidaturas/${applicationId}/curriculo`, {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+    } catch {
+      throw new ApiError("Não foi possível ligar ao servidor. Verifique a sua ligação e tente novamente.", "network_error", 0);
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => null);
-      throw new Error(err?.detail ?? "Não foi possível descarregar o currículo.");
+      const error = err?.error;
+      throw new ApiError(
+        error?.message ?? err?.detail ?? "Não foi possível descarregar o currículo.",
+        error?.code ?? "resume_download_failed",
+        error?.status ?? res.status,
+        error?.request_id ?? res.headers.get("X-Request-Id") ?? undefined,
+        error?.fields,
+      );
     }
     return res.blob();
   },
@@ -206,14 +251,23 @@ export const api = {
   notificationsStreamUrl: (token?: string) => `${API_URL}/api/notificacoes/stream${token ? `?token=${encodeURIComponent(token)}` : ""}`,
 };
 
-export function getSession(): { token: string; user: SessionUser } | null {
+export function getSession(): ClientSession | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem("rh-session");
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    const stored = JSON.parse(raw) as { user?: SessionUser };
+    return stored.user ? { user: stored.user } : null;
+  } catch {
+    window.localStorage.removeItem("rh-session");
+    return null;
+  }
 }
 
-export function saveSession(token: string, user: SessionUser) {
-  window.localStorage.setItem("rh-session", JSON.stringify({ token, user }));
+export function saveSession(_token: string | undefined, user: SessionUser) {
+  // O JWT fica exclusivamente no cookie HttpOnly. Apenas os dados de interface
+  // necessários ao RouteGuard são persistidos no navegador.
+  window.localStorage.setItem("rh-session", JSON.stringify({ user }));
 }
 
 export function clearSession() {

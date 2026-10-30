@@ -29,6 +29,20 @@ def get_allowed_origins() -> list[str]:
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
+def get_csrf_trusted_origins() -> set[str]:
+    """Origens que podem emitir pedidos com o cookie de sessão.
+
+    API_ORIGIN é configurável para manter o Swagger funcional sem confiar no
+    cabeçalho Host recebido, que pode ser forjado por um cliente externo.
+    """
+    raw_api_origins = os.getenv("API_ORIGIN", "http://localhost:8000,http://127.0.0.1:8000")
+    api_origins = {origin.strip() for origin in raw_api_origins.split(",") if origin.strip()}
+    return set(get_allowed_origins()) | api_origins
+
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
 # Cria as tabelas SQLite se não existirem
 Base.metadata.create_all(bind=engine)
 migrate_sqlite_schema()
@@ -44,6 +58,29 @@ app = FastAPI(
 async def request_logging_and_headers(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or os.urandom(8).hex()
     request.state.request_id = request_id
+
+    # As operações autenticadas usam cookies. Rejeitar uma origem explícita que
+    # não esteja autorizada reduz o risco de CSRF, mantendo compatibilidade com
+    # clientes não-browser (que não enviam o cabeçalho Origin).
+    origin = request.headers.get("origin")
+    allowed_origins = get_csrf_trusted_origins()
+    if request.method not in SAFE_METHODS and origin and origin not in allowed_origins:
+        response = JSONResponse(
+            status_code=403,
+            content=build_error_payload(
+                "A origem deste pedido não está autorizada.",
+                "csrf_origin_forbidden",
+                403,
+                request_id=request_id,
+            ),
+        )
+        response.headers["X-Request-Id"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
+
     response = await call_next(request)
     response.headers["X-Request-Id"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -62,12 +99,20 @@ async def request_logging_and_headers(request: Request, call_next):
     return response
 
 
-def build_error_payload(detail: str, code: str, status_code: int, fields: list | None = None):
+def build_error_payload(
+    detail: str,
+    code: str,
+    status_code: int,
+    request_id: str | None = None,
+    fields: list | None = None,
+):
     payload = {
         "detail": detail,
         "error": {
             "code": code,
             "message": detail,
+            "status": status_code,
+            "request_id": request_id,
         },
     }
     if fields is not None:
@@ -78,9 +123,13 @@ def build_error_payload(detail: str, code: str, status_code: int, fields: list |
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     status_code = exc.status_code
-    detail = exc.detail if isinstance(exc.detail, str) else "Ocorreu um erro na operação."
+    custom_error = exc.detail if isinstance(exc.detail, dict) else {}
+    detail = custom_error.get("message") if custom_error else exc.detail
+    detail = detail if isinstance(detail, str) else "Ocorreu um erro na operação."
 
-    if status_code == 400:
+    if custom_error.get("code"):
+        code = custom_error["code"]
+    elif status_code == 400:
         code = "bad_request"
     elif status_code == 401:
         code = "invalid_credentials"
@@ -106,7 +155,16 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             "request_id": getattr(request.state, "request_id", None),
         },
     )
-    return JSONResponse(status_code=status_code, content=build_error_payload(detail, code, status_code))
+    return JSONResponse(
+        status_code=status_code,
+        content=build_error_payload(
+            detail,
+            code,
+            status_code,
+            request_id=getattr(request.state, "request_id", None),
+            fields=custom_error.get("fields"),
+        ),
+    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -125,6 +183,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "Os dados enviados são inválidos.",
             "validation_error",
             422,
+            request_id=getattr(request.state, "request_id", None),
             fields=exc.errors(),
         ),
     )
@@ -141,7 +200,12 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
     return JSONResponse(
         status_code=500,
-        content=build_error_payload("Erro interno do servidor.", "internal_server_error", 500),
+        content=build_error_payload(
+            "Erro interno do servidor.",
+            "internal_server_error",
+            500,
+            request_id=getattr(request.state, "request_id", None),
+        ),
     )
 
 
