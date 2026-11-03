@@ -252,9 +252,11 @@ class EmailService(EmailServicePort):
 
     def _enviar_via_smtp(self, destinatario: str, assunto: str, html: str, texto: str) -> bool:
         try:
+            from email.header import Header
+
             msg = MIMEMultipart("alternative")
-            msg["Subject"] = assunto
-            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["Subject"] = Header(assunto, "utf-8")
+            msg["From"] = f"{Header(self.from_name, 'utf-8')} <{self.from_email}>"
             msg["To"] = destinatario
 
             part_text = MIMEText(texto, "plain", "utf-8")
@@ -320,26 +322,68 @@ class EmailService(EmailServicePort):
         titulo_vaga: str,
         nova_fase: str
     ) -> bool:
-        """Notifica o candidato sobre atualização de fase no processo seletivo."""
-        assunto = f"Atualização da sua candidatura: {titulo_vaga}"
+        """Notifica o candidato sobre atualização de fase no processo seletivo com conteúdo personalizado por fase."""
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        link_portal = f"{frontend_url}/candidate/applications"
+
+        if nova_fase == "Entrevista":
+            assunto = f"Parabéns! Foi selecionado(a) para a fase de Entrevista: {titulo_vaga}"
+            titulo_cabecalho = f"Parabéns, {nome_candidato}!"
+            cor_destaque = "#2563eb"
+            badge_cor = "background-color: #dbeafe; color: #1e40af;"
+            mensagem_fase = (
+                f"<p style='font-size: 16px; color: #1e293b;'>O seu perfil destacou-se e foi <strong>selecionado(a) para a fase de Entrevista</strong> na vaga <strong>{titulo_vaga}</strong>!</p>"
+                "<p>A equipa de recrutamento entrará em contacto ou disponibilizará o link e data da entrevista diretamente na plataforma. Aceda ao portal para acompanhar todas as atualizações.</p>"
+            )
+            texto_botao = "Aceder às Minhas Candidaturas"
+        elif nova_fase == "Contratado":
+            assunto = f"Parabéns! Foi contratado(a) para a vaga: {titulo_vaga}"
+            titulo_cabecalho = f"Excelente notícia, {nome_candidato}!"
+            cor_destaque = "#10b981"
+            badge_cor = "background-color: #d1fae5; color: #065f46;"
+            mensagem_fase = (
+                f"<p style='font-size: 16px; color: #1e293b;'>🎉 Temos o enorme prazer de informar que foi <strong>aprovado(a) e contratado(a)</strong> para a vaga <strong>{titulo_vaga}</strong>!</p>"
+                "<p>A empresa responsável entrará em contacto muito em breve para alinhar os detalhes da sua contratação e os passos de acolhimento. Parabéns por esta grande conquista!</p>"
+            )
+            texto_botao = "Ver Detalhes da Contratação"
+        elif nova_fase == "Reprovado":
+            assunto = f"Atualização sobre a sua candidatura: {titulo_vaga}"
+            titulo_cabecalho = f"Olá, {nome_candidato}"
+            cor_destaque = "#64748b"
+            badge_cor = "background-color: #f1f5f9; color: #475569;"
+            mensagem_fase = (
+                f"<p>Agradecemos sinceramente o seu interesse e o tempo dedicado ao candidatar-se à vaga <strong>{titulo_vaga}</strong>.</p>"
+                "<p>Após avaliação cuidadosa, a empresa decidiu prosseguir com outros perfis cujas competências atendem mais diretamente às necessidades operacionais imediatas para esta posição.</p>"
+                "<p>O seu currículo continuará registado no nosso <strong>Banco de Talentos</strong>, e novas vagas recomendadas serão disponibilizadas no seu painel.</p>"
+            )
+            texto_botao = "Explorar Outras Vagas Disponíveis"
+            link_portal = f"{frontend_url}/candidate/dashboard"
+        else:
+            assunto = f"Atualização da sua candidatura: {titulo_vaga}"
+            titulo_cabecalho = f"Olá, {nome_candidato}!"
+            cor_destaque = "#2563eb"
+            badge_cor = "background-color: #e0e7ff; color: #3730a3;"
+            mensagem_fase = (
+                f"<p>A sua candidatura para a vaga <strong>{titulo_vaga}</strong> teve uma atualização de estado.</p>"
+            )
+            texto_botao = "Acompanhar Candidatura"
+
         corpo_html = f"""
-        <h2 style="color: #0f172a; margin-top: 0;">Olá, {nome_candidato}!</h2>
-        <p>Temos novidades sobre o seu processo seletivo para a vaga <strong>{titulo_vaga}</strong>.</p>
+        <h2 style="color: #0f172a; margin-top: 0;">{titulo_cabecalho}</h2>
+        {mensagem_fase}
         
-        <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 16px; margin: 20px 0; border-radius: 4px;">
-          <p style="margin: 0; font-size: 14px; color: #475569;">A sua candidatura avançou para:</p>
-          <p style="margin: 6px 0 0; font-size: 18px; font-weight: 700; color: #1e293b;">
-            <span class="badge">{nova_fase}</span>
+        <div style="background-color: #f8fafc; border-left: 4px solid {cor_destaque}; padding: 16px; margin: 24px 0; border-radius: 6px;">
+          <p style="margin: 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Novo Estado no Processo:</p>
+          <p style="margin: 6px 0 0; font-size: 18px; font-weight: 700;">
+            <span style="display: inline-block; padding: 4px 12px; border-radius: 6px; font-weight: 700; {badge_cor}">{nova_fase}</span>
           </p>
         </div>
 
-        <p>Aceda ao portal para acompanhar todos os detalhes e mensagens dos recrutadores:</p>
-
-        <div style="text-align: center; margin: 25px 0;">
-          <a href="{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/candidate/applications" class="btn" target="_blank">Acompanhar Candidatura</a>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="{link_portal}" class="btn" target="_blank">{texto_botao}</a>
         </div>
         """
-        corpo_texto = f"Olá {nome_candidato},\n\nA sua candidatura para '{titulo_vaga}' avançou para a fase: {nova_fase}.\nAceda ao portal para acompanhar."
+        corpo_texto = f"Olá {nome_candidato},\n\nA sua candidatura para '{titulo_vaga}' foi atualizada para: {nova_fase}.\nAceda ao portal para acompanhar: {link_portal}"
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
 
     def enviar_convite_entrevista(self, destinatario: str, nome_candidato: str, titulo_vaga: str, data_hora: str, link: Optional[str], notas: Optional[str]) -> bool:

@@ -85,6 +85,20 @@ def executar_triagem_ia_background(candidatura_id: int, curriculo_texto: str, va
                     "Seu currículo obteve alta aderência aos requisitos e você foi selecionado para a fase de Entrevista!"
                 )
                 db.commit()
+
+                # Dispara e-mail automático ao candidato informando a evolução para a fase de Entrevista
+                candidato = db.query(UsuarioModel).filter(UsuarioModel.id == candidato_id).first()
+                if candidato and candidato.email and vaga:
+                    try:
+                        email_service.enviar_notificacao_candidatura(
+                            candidato.email,
+                            candidato.nome or "Candidato",
+                            vaga.titulo,
+                            "Entrevista"
+                        )
+                        logger.info(f"E-mail de avanço para Entrevista (IA) enviado para {candidato.email}")
+                    except Exception as err:
+                        logger.error(f"Erro ao enviar e-mail de triagem IA para {candidato.email}: {err}")
     except Exception as e:
         logger.error(f"Falha na execução em background da triagem de IA para candidatura {candidatura_id}: {e}")
         db.rollback()
