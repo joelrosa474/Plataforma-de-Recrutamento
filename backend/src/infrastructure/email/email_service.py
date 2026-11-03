@@ -315,6 +315,94 @@ class EmailService(EmailServicePort):
         corpo_texto = f"""Olá {nome},\n\nRecebemos um pedido de redefinição de palavra-passe. Aceda ao link para continuar:\n{link_redefinicao}\n\nSe não solicitou, ignore esta mensagem."""
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
 
+    def enviar_boas_vindas(
+        self,
+        destinatario: str,
+        nome: str,
+        tipo_perfil: str
+    ) -> bool:
+        """Envia e-mail de boas-vindas da plataforma É Salú ao novo utilizador com descrições das funcionalidades."""
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        nome_exibicao = (nome or "").strip() or "Utilizador"
+        eh_empresa = (tipo_perfil or "").strip().lower() == "empresa"
+
+        if eh_empresa:
+            assunto = "Bem-vindo(a) à É Salú - Transforme o Recrutamento da sua Empresa!"
+            link_acao = f"{frontend_url}/company/jobs"
+            texto_botao = "Publicar Primeira Vaga"
+            conteudo_especifico = """
+            <p style="font-size: 16px; color: #1e293b; line-height: 1.6;">
+              É com enorme satisfação que damos as boas-vindas à sua organização na <strong>É Salú</strong>!
+            </p>
+            <p style="color: #475569; line-height: 1.6;">
+              A <strong>É Salú</strong> é a plataforma moderna concebida para aproximar empresas visionárias dos melhores profissionais do mercado, combinando velocidade, assertividade e inteligência artificial avançada.
+            </p>
+
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; padding: 20px; margin: 24px 0; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #0f172a; font-size: 15px;">Recursos exclusivos para a sua empresa na É Salú:</h3>
+              <ul style="padding-left: 20px; margin: 10px 0; color: #334155; font-size: 14px; line-height: 1.8;">
+                <li><strong>Publicação Ágil de Vagas:</strong> Crie oportunidades nas modalidades Presencial, Híbrida ou Remota com requisitos claros.</li>
+                <li><strong>Triagem Inteligente com Gemini IA:</strong> Análise instantânea de currículos em PDF com pontuação de afinidade (<em>Match Score</em>) e justificativa semântica.</li>
+                <li><strong>Funil Completo do Processo Seletivo (ATS):</strong> Mova candidatos entre Triagem, Entrevista e Contratado com notificações automáticas.</li>
+                <li><strong>Geração Automática de Roteiros de Entrevista:</strong> A IA formula perguntas técnicas e situacionais personalizadas para o perfil de cada candidato.</li>
+                <li><strong>Busca Ativa no Banco de Talentos:</strong> Pesquise diretamente profissionais qualificados por área, competências e localização.</li>
+              </ul>
+            </div>
+
+            <p style="font-size: 14px; color: #64748b;">
+              O próximo grande talento da sua equipa pode estar a um clique. Publique a sua primeira vaga e comece a receber candidaturas triadas.
+            </p>
+            """
+        else:
+            assunto = "Bem-vindo(a) à É Salú - O seu próximo passo profissional começa aqui!"
+            link_acao = f"{frontend_url}/candidate/profile"
+            texto_botao = "Completar Meu Perfil e Currículo"
+            conteudo_especifico = """
+            <p style="font-size: 16px; color: #1e293b; line-height: 1.6;">
+              Temos o prazer de lhe dar as boas-vindas à <strong>É Salú</strong>! A sua conta foi registada com sucesso.
+            </p>
+            <p style="color: #475569; line-height: 1.6;">
+              A <strong>É Salú</strong> é a sua nova ponte para o mercado de trabalho. Aqui, conectamos as suas experiências e ambições a empresas de destaque, valorizando o seu potencial com tecnologia de ponta.
+            </p>
+
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #10b981; padding: 20px; margin: 24px 0; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #0f172a; font-size: 15px;">Como a É Salú impulsiona a sua carreira:</h3>
+              <ul style="padding-left: 20px; margin: 10px 0; color: #334155; font-size: 14px; line-height: 1.8;">
+                <li><strong>Vagas Recomendadas para Si:</strong> Algoritmos inteligentes indicam oportunidades altamente compatíveis com o seu histórico.</li>
+                <li><strong>Triagem Transparente por IA:</strong> Saiba em tempo real o seu nível de afinidade com os requisitos das vagas a que se candidata.</li>
+                <li><strong>Acompanhamento Passo a Passo:</strong> Notificações imediatas por e-mail quando a sua candidatura avança para Entrevista ou Contratação.</li>
+                <li><strong>Destaque no Banco de Talentos:</strong> Permita que empresas e recrutadores encontrem o seu perfil proativamente.</li>
+              </ul>
+            </div>
+
+            <div style="background-color: #ecfdf5; border: 1px dashed #6ee7b7; padding: 14px; margin: 20px 0; border-radius: 6px;">
+              <p style="margin: 0; font-size: 13px; color: #065f46;">
+                💡 <strong>Dica para se destacar:</strong> Complete o seu perfil com as suas principais competências e carregue o seu currículo em PDF. Candidatos com perfil completo recebem 3x mais contactos de recrutadores!
+              </p>
+            </div>
+            """
+
+        corpo_html = f"""
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #0f172a; margin: 0 0 8px 0; font-size: 24px;">Bem-vindo(a) à É Salú, {nome_exibicao}!</h2>
+          <span style="display: inline-block; padding: 4px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; background-color: #e0e7ff; color: #3730a3;">Perfil: {tipo_perfil}</span>
+        </div>
+
+        {conteudo_especifico}
+
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="{link_acao}" class="btn" target="_blank">{texto_botao}</a>
+        </div>
+
+        <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+          Estamos aqui para ajudar em cada etapa do seu caminho. Desejamos-lhe as maiores felicidades e muito sucesso na <strong>É Salú</strong>!
+        </p>
+        """
+
+        corpo_texto = f"""Bem-vindo(a) à É Salú, {nome_exibicao}!\n\nA sua conta de {tipo_perfil} foi criada com sucesso na plataforma É Salú.\nAceda ao portal e dê o próximo passo:\n{link_acao}"""
+
+        return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
+
     def enviar_confirmacao_candidatura(
         self,
         destinatario: str,

@@ -27,6 +27,16 @@ class EmailServicePort(ABC):
         pass
 
     @abstractmethod
+    def enviar_boas_vindas(
+        self,
+        destinatario: str,
+        nome: str,
+        tipo_perfil: str
+    ) -> bool:
+        """Envia e-mail de boas-vindas da plataforma É Salú com descrições das funcionalidades."""
+        pass
+
+    @abstractmethod
     def enviar_notificacao_candidatura(
         self,
         destinatario: str,

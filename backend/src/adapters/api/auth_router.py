@@ -111,7 +111,11 @@ class RedefinirSenhaRequest(BaseModel):
 
 
 @router.post("/registrar", response_model=UsuarioResponse)
-def registrar(request: RegistroRequest, use_case: AutenticacaoUseCase = Depends(get_auth_use_case)):
+def registrar(
+    request: RegistroRequest,
+    background_tasks: BackgroundTasks,
+    use_case: AutenticacaoUseCase = Depends(get_auth_use_case)
+):
     try:
         usuario_criado = use_case.registrar(
             nome=request.nome,
@@ -119,6 +123,16 @@ def registrar(request: RegistroRequest, use_case: AutenticacaoUseCase = Depends(
             senha_plana=request.senha,
             tipo_perfil=request.tipo_perfil
         )
+
+        # Dispara e-mail de boas-vindas da plataforma É Salú em segundo plano
+        background_tasks.add_task(
+            email_service.enviar_boas_vindas,
+            usuario_criado.email,
+            usuario_criado.nome,
+            usuario_criado.tipo_perfil
+        )
+        logger.info(f"Agendado e-mail de boas-vindas para o novo utilizador {usuario_criado.email} ({usuario_criado.tipo_perfil})")
+
         return usuario_criado
     except ValueError as e:
         message = str(e)
