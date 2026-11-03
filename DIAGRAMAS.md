@@ -9,7 +9,8 @@ Todos os diagramas foram modelados utilizando a sintaxe **Mermaid**, sendo rende
 ## Índice dos Diagramas
 
 1. [Diagrama 1: Arquitetura Geral da Solução (Visão de Infraestrutura & Nuvem)](#1-arquitetura-geral-da-solução)
-2. [Diagrama 2: Modelo Entidade-Relacionamento (DER / Banco de Dados)](#2-modelo-entidade-relacionamento-der)
+2. [Diagrama 2: Modelo Entidade-Relacionamento Físico Inicial (DER com JSON)](#2-modelo-entidade-relacionamento-der)
+   - 2.1 [Diagrama 2.1: Modelo Entidade-Relacionamento Totalmente Normalizado (3FN)](#21-modelo-entidade-relacionamento-totalmente-normalizado-3fn)
 3. [Diagrama 3: Fluxo de Autenticação, Registro e RBAC (JWT)](#3-fluxo-de-autenticação-e-autorização-jwt)
 4. [Diagrama 4: Fluxo de Triagem Inteligente com IA (Google Gemini 1.5)](#4-fluxo-de-triagem-inteligente-com-ia-gemini)
 5. [Diagrama 5: Ciclo de Vida da Candidatura no ATS (Máquina de Estados)](#5-ciclo-de-vida-da-candidatura-ats)
@@ -150,6 +151,225 @@ erDiagram
         datetime data_criacao "Timestamp do envio"
     }
 ```
+
+---
+
+## 2.1 Modelo Entidade-Relacionamento Totalmente Normalizado (3FN)
+
+A normalização de dados é uma técnica formal de engenharia de software e modelagem relacional que visa **eliminar redundâncias**, **evitar anomalias de atualização/inserção/exclusão** e **garantir a integridade referencial** estrita.
+
+### Justificativa e Processo de Normalização:
+
+1. **Primeira Forma Normal (1FN) — Atomicidade de Dados:**
+   * **Problema anterior:** As colunas `competencias` (em Usuários), `requisitos` (em Vagas), `analise_match_ia` e `roteiro_entrevista` (em Candidaturas) armazenavam vetores e objetos JSON em colunas de texto/JSON. Isso impedia filtros indexados por competência em SQL nativo e violava a atomicidade.
+   * **Solução:** Criação das entidades `COMPETENCIAS`, `CANDIDATO_COMPETENCIAS`, `VAGA_REQUISITOS`, `ROTEIRO_PERGUNTAS` e `ANALISES_IA`. Todos os atributos agora contêm valores atômicos e indivisíveis.
+
+2. **Segunda Forma Normal (2FN) — Dependência Funcional Total:**
+   * **Regra:** Estar na 1FN e nenhum atributo não-chave depender apenas de parte de uma chave primária composta.
+   * **Solução:** Nas tabelas associativas `CANDIDATO_COMPETENCIAS` (PK composta `candidato_id + competencia_id`) e `VAGA_REQUISITOS` (PK composta `vaga_id + competencia_id`), os campos adicionais (`nivel_proficiencia`, `anos_experiencia`, `obrigatorio`, `peso_ia`) dependem exclusivamente da chave primária inteira.
+   * Separação de `ENTREVISTAS` da tabela principal de candidaturas, permitindo múltiplos agendamentos e histórico.
+
+3. **Terceira Forma Normal (3FN) — Eliminação de Dependências Transitivas:**
+   * **Regra:** Estar na 2FN e nenhum atributo não-chave depender de outro atributo não-chave ($X \rightarrow Y \rightarrow Z$).
+   * **Solução:**
+     * Criação de tabelas de domínio para substituir strings livres: `PERFIS_ACESSO` (RBAC), `AREAS_ATUACAO`, `MODALIDADES`, `PROVINCIAS` e `FASES_ATS`.
+     * Especialização de usuários em subtabelas 1:1 (`PERFIS_CANDIDATO` e `PERFIS_EMPRESA`), evitando campos nulos e separando atributos corporativos (NIF, Razão Social, Website) de atributos do candidato.
+     * Criação da tabela de auditoria `HISTORICO_FASES` para registrar quem alterou a fase, em que timestamp e qual o motivo.
+
+```mermaid
+erDiagram
+    PERFIS_ACESSO ||--o{ USUARIOS : "classifica"
+    PROVINCIAS ||--o{ USUARIOS : "reside_em"
+    PROVINCIAS ||--o{ VAGAS : "localizada_em"
+    AREAS_ATUACAO ||--o{ VAGAS : "pertence_a"
+    MODALIDADES ||--o{ VAGAS : "executada_como"
+    
+    USUARIOS ||--o| PERFIS_CANDIDATO : "especializa_como"
+    USUARIOS ||--o| PERFIS_EMPRESA : "especializa_como"
+    
+    USUARIOS ||--o{ VAGAS : "anuncia"
+    USUARIOS ||--o{ NOTIFICACOES : "recebe"
+    
+    PERFIS_CANDIDATO ||--o{ CANDIDATO_COMPETENCIAS : "possui"
+    COMPETENCIAS ||--o{ CANDIDATO_COMPETENCIAS : "associada_a"
+    
+    VAGAS ||--o{ VAGA_REQUISITOS : "demanda"
+    COMPETENCIAS ||--o{ VAGA_REQUISITOS : "requerida_em"
+    
+    VAGAS ||--o{ CANDIDATURAS : "recebe_inscricoes"
+    USUARIOS ||--o{ CANDIDATURAS : "submete"
+    FASES_ATS ||--o{ CANDIDATURAS : "posicionada_em"
+    
+    CANDIDATURAS ||--o{ HISTORICO_FASES : "registra_transicoes"
+    FASES_ATS ||--o{ HISTORICO_FASES : "fase_atingida"
+    USUARIOS ||--o{ HISTORICO_FASES : "atualizado_por"
+    
+    CANDIDATURAS ||--o{ ENTREVISTAS : "conduz"
+    ENTREVISTAS ||--o{ ROTEIRO_PERGUNTAS : "avalia_com"
+    
+    CANDIDATURAS ||--o| ANALISES_IA : "possui_triagem"
+
+    PERFIS_ACESSO {
+        int id PK "Identificador do perfil"
+        string codigo UK "CANDIDATO | EMPRESA | ADMIN"
+        string descricao "Descricao detalhada das permissoes"
+    }
+
+    PROVINCIAS {
+        int id PK "Identificador da provincia"
+        string nome UK "Nome da provincia ou regiao"
+        string codigo_iso "Sigla ou codigo geografico"
+    }
+
+    AREAS_ATUACAO {
+        int id PK "Identificador da area funcional"
+        string nome UK "Tecnologia, Financas, Saude, etc"
+        string descricao "Descricao do segmento de mercado"
+    }
+
+    MODALIDADES {
+        int id PK "Identificador da modalidade"
+        string nome UK "Presencial | Hibrido | Remoto"
+    }
+
+    FASES_ATS {
+        int id PK "Identificador da etapa seletiva"
+        string codigo UK "TRIAGEM | ENTREVISTA | CONTRATADO | REPROVADO"
+        string nome "Nome legivel da etapa no funil"
+        int ordem "Sequencia ordinal no pipeline de selecao"
+    }
+
+    USUARIOS {
+        int id PK "Identificador unico global"
+        int perfil_id FK "Chave estrangeira para PERFIS_ACESSO"
+        int provincia_id FK "Localizacao geografica principal"
+        string nome "Nome completo ou razao social inicial"
+        string email UK "E-mail unico e indexado para autenticacao"
+        string senha_hash "Hash criptografico bcrypt com salt"
+        string telefone "Numero de contacto telefonico"
+        boolean ativo "Indicador de conta ativa no sistema"
+        datetime data_criacao "Timestamp de registo na plataforma"
+    }
+
+    PERFIS_CANDIDATO {
+        int usuario_id PK, FK "Chave 1:1 referenciando USUARIOS"
+        text resumo_profissional "Apresentacao e sintese de carreira"
+        string linkedin_url "Endereco do perfil no LinkedIn"
+        string github_url "Endereco do repositorio ou portfolio"
+        boolean perfil_publico_talentos "Autorizacao para Banco de Talentos"
+    }
+
+    PERFIS_EMPRESA {
+        int usuario_id PK, FK "Chave 1:1 referenciando USUARIOS"
+        string razao_social "Nome juridico da organizacao"
+        string nif UK "Numero de identificacao fiscal unico"
+        string website_url "Endereco do site oficial"
+        string tamanho_empresa "Porte: Startup, PME, Grande Empresa"
+        text descricao_empresa "Missao, visao e informacoes corporativas"
+    }
+
+    COMPETENCIAS {
+        int id PK "Identificador unico da habilidade"
+        string nome UK "Python, React, SQL, Gestao de Projetos"
+        string categoria "Hard Skill | Soft Skill | Idioma | Certificacao"
+    }
+
+    CANDIDATO_COMPETENCIAS {
+        int candidato_id PK, FK "Referencia ao candidato (1FN & 2FN)"
+        int competencia_id PK, FK "Referencia a competencia (1FN & 2FN)"
+        string nivel_proficiencia "Basico | Intermedio | Avancado | Especialista"
+        int anos_experiencia "Tempo de atuacao comprovada na competencia"
+    }
+
+    VAGAS {
+        int id PK "Identificador unico da vaga"
+        int empresa_id FK "Usuario organizacao anunciante"
+        int area_id FK "Segmento profissional (3FN)"
+        int modalidade_id FK "Modalidade de trabalho (3FN)"
+        int provincia_id FK "Provincia sede da vaga (3FN)"
+        string titulo "Titulo da posicao no mercado"
+        text descricao "Responsabilidades e atribuicoes da funcao"
+        string status "Aberta | Pausada | Fechada"
+        datetime data_criacao "Data e hora da publicacao"
+        datetime data_fechamento "Data de encerramento do processo"
+    }
+
+    VAGA_REQUISITOS {
+        int vaga_id PK, FK "Referencia a vaga anunciada (1FN & 2FN)"
+        int competencia_id PK, FK "Habilidade requerida (1FN & 2FN)"
+        boolean obrigatorio "Flag se e eliminatorio ou desejavel"
+        float peso_relevancia "Peso ponderado atribuido para a IA"
+    }
+
+    CANDIDATURAS {
+        int id PK "Identificador unico da inscricao"
+        int vaga_id FK "Vaga pretendida pelo candidato"
+        int candidato_id FK "Candidato concorrente"
+        int fase_atual_id FK "Fase atual no pipeline ATS (3FN)"
+        float match_score "Score percentual consolidado 0 a 100"
+        string curriculo_path "Caminho seguro do PDF no armazenamento"
+        string curriculo_nome "Nome original do arquivo submetido"
+        datetime data_aplicacao "Timestamp de envio da candidatura"
+    }
+
+    HISTORICO_FASES {
+        int id PK "Identificador da transicao de fase"
+        int candidatura_id FK "Referencia a candidatura rastreada"
+        int fase_id FK "Nova fase assumida no momento"
+        int responsavel_id FK "Usuario recrutador ou sistema (IA)"
+        datetime data_transicao "Timestamp exato da mudanca de estado"
+        text observacao_motivo "Motivo ou nota de auditoria da alteracao"
+    }
+
+    ENTREVISTAS {
+        int id PK "Identificador unico do encontro"
+        int candidatura_id FK "Candidatura associada a entrevista"
+        datetime data_hora "Data e horario agendados"
+        string link_reuniao "Link da sala Google Meet, Teams ou local"
+        string status "Agendada | Realizada | Cancelada"
+        text notas_preparatorias "Instrucoes ou apontamentos do recrutador"
+    }
+
+    ROTEIRO_PERGUNTAS {
+        int id PK "Identificador unico da questao (1FN)"
+        int entrevista_id FK "Entrevista a qual a questao pertence"
+        int ordem "Ordem da pergunta na pauta de avaliacao"
+        text pergunta "Pergunta formulada pela IA ou recrutador"
+        text criterio_avaliacao "Criterio esperado na resposta do candidato"
+        float nota_atribuida "Pontuacao recebida na questao (0 a 10)"
+        text observacao_avaliador "Feedback detalhado anotado pelo entrevistador"
+    }
+
+    ANALISES_IA {
+        int id PK "Identificador unico da triagem semantica (1FN)"
+        int candidatura_id FK, UK "Relacionamento 1:1 com a candidatura"
+        float score_calculado "Pontuacao de compatibilidade semantica"
+        text parecer_tecnico "Parecer detalhado emitido pelo Gemini"
+        text recomendacao "Recomendacao: Entrevista, Banco ou Reprovacao"
+        datetime data_processamento "Momento da analise pela IA"
+    }
+
+    NOTIFICACOES {
+        int id PK "Identificador da notificacao"
+        int usuario_id FK "Destinatario da mensagem"
+        string titulo "Titulo explicativo do alerta"
+        text mensagem "Conteudo completo com o nome da empresa e vaga"
+        boolean lida "Status de leitura pelo destinatario"
+        datetime data_criacao "Timestamp do disparo"
+    }
+```
+
+### Tabela Comparativa de Normalização (1FN, 2FN e 3FN)
+
+| Aspecto | Modelo Físico Atual (Semi-estruturado) | Modelo Relacional Normalizado (3FN) | Forma Normal Atendida |
+| :--- | :--- | :--- | :--- |
+| **Competências do Candidato** | Array JSON em coluna `TEXT` (`"[\"Python\", \"React\"]"`) | Entidade `COMPETENCIAS` + Tabela Associativa `CANDIDATO_COMPETENCIAS` com proficiência e anos | **1FN & 2FN** (atomicidade e chave composta) |
+| **Requisitos da Vaga** | Array JSON em coluna `TEXT` (`"[\"SQL\", \"FastAPI\"]"`) | Entidade `COMPETENCIAS` + Tabela Associativa `VAGA_REQUISITOS` com pesos e flags eliminatórias | **1FN & 2FN** (eliminação de grupos repetitivos) |
+| **Perfis de Utilizador** | Coluna `role` livre (`VARCHAR`) e campos misturados | Tabela de domínio `PERFIS_ACESSO` (RBAC) + Especialização 1:1 (`PERFIS_CANDIDATO` e `PERFIS_EMPRESA`) | **3FN** (eliminação de dependências transitivas e nulos) |
+| **Triagem & Análise IA** | Coluna JSON `analise_match_ia` em `CANDIDATURAS` | Entidade dedicada 1:1 `ANALISES_IA` com score atômico, parecer e recomendação | **1FN** (valores escalares e atômicos) |
+| **Roteiro de Entrevista** | Coluna JSON `roteiro_entrevista` em `CANDIDATURAS` | Entidade `ENTREVISTAS` (1:N) + Entidade `ROTEIRO_PERGUNTAS` (1:N) com notas por questão | **1FN & 2FN** (desacoplamento e granularidade) |
+| **Rastreabilidade de Fases** | Apenas coluna escalar `fase` atual | Tabela de domínio `FASES_ATS` + Tabela de Auditoria `HISTORICO_FASES` com carimbo temporal e autor | **3FN** (rastreabilidade e integridade temporal) |
+| **Geolocalização & Áreas** | Strings livres repetidas (`provincia`, `area`) | Tabelas normalizadas `PROVINCIAS`, `AREAS_ATUACAO` e `MODALIDADES` via chaves estrangeiras | **3FN** (padronização de domínio) |
 
 ---
 
