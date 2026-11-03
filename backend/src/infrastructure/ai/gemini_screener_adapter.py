@@ -29,6 +29,11 @@ class RoteiroEntrevistaSchema(BaseModel):
     perguntas: list[PerguntaEntrevistaSchema] = Field(description="Cinco perguntas personalizadas, justas e relevantes.")
 
 
+class ValidacaoDocumentoSchema(BaseModel):
+    e_curriculo: bool = Field(description="True se o documento for claramente um curriculo vitae ou CV. False caso contrario (carta, contrato, fatura, imagem, documento em branco, etc.).")
+    motivo: str = Field(description="Explicacao curta do por que e ou nao e um curriculo.")
+
+
 class GeminiScreenerAdapter(AIScreenerPort):
     def __init__(self):
         api_key = os.environ.get("GEMINI_API_KEY")
@@ -136,6 +141,58 @@ class GeminiScreenerAdapter(AIScreenerPort):
     def _lista_limitada(valor, limite: int) -> list[str]:
         if not isinstance(valor, list):
             return []
+
+    def verificar_se_e_curriculo(self, texto_documento: str) -> tuple[bool, str]:
+        """
+        Usa a IA para verificar se o texto extraído de um PDF é realmente um currículo vitae.
+        Retorna (True, motivo) se for CV, (False, motivo) se não for.
+        Em caso de falha da IA, assume True para não penalizar o candidato por erro de sistema.
+        """
+        if not self.client:
+            return True, "Verificação automática desativada (IA não configurada)."
+
+        if not texto_documento or len(texto_documento.strip()) < 30:
+            return False, "O documento submetido está em branco ou não contém texto suficiente para análise."
+
+        prompt = f"""
+        Analise o texto extraído de um PDF submetido por um candidato.
+        Determine com rigor se o documento é um CURRÍCULO VITAE (CV).
+
+        Um currículo vitae normalmente contém: nome e contacto do candidato, experiência profissional,
+        formação académica, competências ou habilidades, e opcionalmente referências ou objetivos profissionais.
+
+        NÃO é currículo: cartas de apresentação (sem historial profissional), contratos, faturas,
+        documentos jurídicos, imagens sem texto, documentos em branco, apresentações, relatórios, artigos, etc.
+
+        TEXTO DO DOCUMENTO:
+        {texto_documento[:3000]}
+
+        Responda apenas com o JSON solicitado.
+        """
+
+        for attempt in range(3):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ValidacaoDocumentoSchema,
+                        temperature=0.1,
+                    ),
+                )
+                result = json.loads(response.text)
+                e_curriculo = bool(result.get("e_curriculo", True))
+                motivo = str(result.get("motivo", ""))
+                return e_curriculo, motivo
+            except Exception as e:
+                if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                print(f"Erro ao verificar documento com Gemini: {e}")
+                return True, "Não foi possível verificar o documento (falha temporária da IA). Triagem normal aplicada."
+
+        return True, "Verificação concluída com resultado padrão."
         return [str(item).strip() for item in valor if str(item).strip()][:limite]
 
     @staticmethod
@@ -150,6 +207,58 @@ class GeminiScreenerAdapter(AIScreenerPort):
     def extrair_habilidades(self, curriculo_texto: str) -> list[str]:
         if not self.client:
             return []
+
+    def verificar_se_e_curriculo(self, texto_documento: str) -> tuple[bool, str]:
+        """
+        Usa a IA para verificar se o texto extraído de um PDF é realmente um currículo vitae.
+        Retorna (True, motivo) se for CV, (False, motivo) se não for.
+        Em caso de falha da IA, assume True para não penalizar o candidato por erro de sistema.
+        """
+        if not self.client:
+            return True, "Verificação automática desativada (IA não configurada)."
+
+        if not texto_documento or len(texto_documento.strip()) < 30:
+            return False, "O documento submetido está em branco ou não contém texto suficiente para análise."
+
+        prompt = f"""
+        Analise o texto extraído de um PDF submetido por um candidato.
+        Determine com rigor se o documento é um CURRÍCULO VITAE (CV).
+
+        Um currículo vitae normalmente contém: nome e contacto do candidato, experiência profissional,
+        formação académica, competências ou habilidades, e opcionalmente referências ou objetivos profissionais.
+
+        NÃO é currículo: cartas de apresentação (sem historial profissional), contratos, faturas,
+        documentos jurídicos, imagens sem texto, documentos em branco, apresentações, relatórios, artigos, etc.
+
+        TEXTO DO DOCUMENTO:
+        {texto_documento[:3000]}
+
+        Responda apenas com o JSON solicitado.
+        """
+
+        for attempt in range(3):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ValidacaoDocumentoSchema,
+                        temperature=0.1,
+                    ),
+                )
+                result = json.loads(response.text)
+                e_curriculo = bool(result.get("e_curriculo", True))
+                motivo = str(result.get("motivo", ""))
+                return e_curriculo, motivo
+            except Exception as e:
+                if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                print(f"Erro ao verificar documento com Gemini: {e}")
+                return True, "Não foi possível verificar o documento (falha temporária da IA). Triagem normal aplicada."
+
+        return True, "Verificação concluída com resultado padrão."
 
         prompt = f"""
         Analise o seguinte currículo e extraia todas as habilidades (skills) técnicas e comportamentais.
@@ -179,4 +288,108 @@ class GeminiScreenerAdapter(AIScreenerPort):
                 print(f"Erro ao extrair habilidades com Gemini: {e}")
                 return []
 
+    def verificar_se_e_curriculo(self, texto_documento: str) -> tuple[bool, str]:
+        """
+        Usa a IA para verificar se o texto extraído de um PDF é realmente um currículo vitae.
+        Retorna (True, motivo) se for CV, (False, motivo) se não for.
+        Em caso de falha da IA, assume True para não penalizar o candidato por erro de sistema.
+        """
+        if not self.client:
+            return True, "Verificação automática desativada (IA não configurada)."
+
+        if not texto_documento or len(texto_documento.strip()) < 30:
+            return False, "O documento submetido está em branco ou não contém texto suficiente para análise."
+
+        prompt = f"""
+        Analise o texto extraído de um PDF submetido por um candidato.
+        Determine com rigor se o documento é um CURRÍCULO VITAE (CV).
+
+        Um currículo vitae normalmente contém: nome e contacto do candidato, experiência profissional,
+        formação académica, competências ou habilidades, e opcionalmente referências ou objetivos profissionais.
+
+        NÃO é currículo: cartas de apresentação (sem historial profissional), contratos, faturas,
+        documentos jurídicos, imagens sem texto, documentos em branco, apresentações, relatórios, artigos, etc.
+
+        TEXTO DO DOCUMENTO:
+        {texto_documento[:3000]}
+
+        Responda apenas com o JSON solicitado.
+        """
+
+        for attempt in range(3):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ValidacaoDocumentoSchema,
+                        temperature=0.1,
+                    ),
+                )
+                result = json.loads(response.text)
+                e_curriculo = bool(result.get("e_curriculo", True))
+                motivo = str(result.get("motivo", ""))
+                return e_curriculo, motivo
+            except Exception as e:
+                if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                print(f"Erro ao verificar documento com Gemini: {e}")
+                return True, "Não foi possível verificar o documento (falha temporária da IA). Triagem normal aplicada."
+
+        return True, "Verificação concluída com resultado padrão."
+
         return []
+
+    def verificar_se_e_curriculo(self, texto_documento: str) -> tuple[bool, str]:
+        """
+        Usa a IA para verificar se o texto extraído de um PDF é realmente um currículo vitae.
+        Retorna (True, motivo) se for CV, (False, motivo) se não for.
+        Em caso de falha da IA, assume True para não penalizar o candidato por erro de sistema.
+        """
+        if not self.client:
+            return True, "Verificação automática desativada (IA não configurada)."
+
+        if not texto_documento or len(texto_documento.strip()) < 30:
+            return False, "O documento submetido está em branco ou não contém texto suficiente para análise."
+
+        prompt = f"""
+        Analise o texto extraído de um PDF submetido por um candidato.
+        Determine com rigor se o documento é um CURRÍCULO VITAE (CV).
+
+        Um currículo vitae normalmente contém: nome e contacto do candidato, experiência profissional,
+        formação académica, competências ou habilidades, e opcionalmente referências ou objetivos profissionais.
+
+        NÃO é currículo: cartas de apresentação (sem historial profissional), contratos, faturas,
+        documentos jurídicos, imagens sem texto, documentos em branco, apresentações, relatórios, artigos, etc.
+
+        TEXTO DO DOCUMENTO:
+        {texto_documento[:3000]}
+
+        Responda apenas com o JSON solicitado.
+        """
+
+        for attempt in range(3):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ValidacaoDocumentoSchema,
+                        temperature=0.1,
+                    ),
+                )
+                result = json.loads(response.text)
+                e_curriculo = bool(result.get("e_curriculo", True))
+                motivo = str(result.get("motivo", ""))
+                return e_curriculo, motivo
+            except Exception as e:
+                if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                print(f"Erro ao verificar documento com Gemini: {e}")
+                return True, "Não foi possível verificar o documento (falha temporária da IA). Triagem normal aplicada."
+
+        return True, "Verificação concluída com resultado padrão."

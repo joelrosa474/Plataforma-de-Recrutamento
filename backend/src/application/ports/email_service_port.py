@@ -72,3 +72,16 @@ class EmailServicePort(ABC):
     ) -> bool:
         """Envia confirmação do agendamento de entrevista com os dados da empresa recrutadora."""
         pass
+
+    @abstractmethod
+    def enviar_alerta_documento_invalido(
+        self,
+        email_recrutador: str,
+        nome_empresa: str,
+        titulo_vaga: str,
+        nome_candidato: str,
+        email_candidato: str,
+        motivo_ia: str
+    ) -> bool:
+        """Notifica o recrutador que o documento submetido pelo candidato não é um currículo."""
+        pass

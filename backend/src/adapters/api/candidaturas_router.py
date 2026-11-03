@@ -56,17 +56,97 @@ def get_candidaturas_use_case(db: Session = Depends(get_db)):
 
 
 def executar_triagem_ia_background(candidatura_id: int, curriculo_texto: str, vaga_id: int, candidato_id: int):
-    """Worker em background para executar a IA sem bloquear o candidato."""
+    """Worker em background: verifica se o documento é um CV; se não for, reprova automaticamente.
+    Se for CV válido, executa a triagem inteligente normal com Gemini."""
     db = SessionLocal()
     try:
         candidatura_repo = CandidaturaRepositorySQLAlchemy(db)
         vaga_repo = VagaRepositorySQLAlchemy(db)
         use_case = RealizarCandidaturaUseCase(candidatura_repo=candidatura_repo, vaga_repo=vaga_repo, ai_screener=ai_screener)
 
+        vaga = vaga_repo.buscar_por_id(vaga_id)
+        candidato = db.query(UsuarioModel).filter(UsuarioModel.id == candidato_id).first()
+        empresa = db.query(UsuarioModel).filter(UsuarioModel.id == vaga.empresa_id).first() if vaga and vaga.empresa_id else None
+        nome_empresa = empresa.nome if empresa and empresa.nome else "Empresa Recrutadora"
+
+        # ── PASSO 1: Verificar se o documento submetido é um currículo vitae ──────
+        e_curriculo, motivo_ia = ai_screener.verificar_se_e_curriculo(curriculo_texto)
+
+        if not e_curriculo:
+            logger.warning(
+                f"[Candidatura {candidatura_id}] Documento nao reconhecido como CV. "
+                f"Motivo IA: {motivo_ia}. Reprovando automaticamente."
+            )
+
+            # Reprovar a candidatura automaticamente
+            candidatura_reprovada = use_case.candidatura_repo.buscar_por_id(candidatura_id)
+            if candidatura_reprovada:
+                candidatura_reprovada.fase_atual = "Reprovado"
+                candidatura_reprovada.match_score = 0.0
+                candidatura_reprovada.feedback_ia = (
+                    f"Documento invalido: o ficheiro submetido nao foi identificado como um curriculo vitae. "
+                    f"Analise da IA: {motivo_ia}"
+                )
+                use_case.candidatura_repo.salvar(candidatura_reprovada)
+                db.commit()
+
+            # Notificar o candidato na plataforma
+            criar_notificacao(
+                db,
+                candidato_id,
+                "Candidatura reprovada — documento invalido",
+                f"O documento que submeteu para a vaga '{vaga.titulo if vaga else 'N/A'}' nao foi reconhecido "
+                f"como um curriculo vitae e a candidatura foi reprovada automaticamente. "
+                f"Por favor, submeta um CV em formato PDF."
+            )
+            db.commit()
+
+            # Notificar o candidato por e-mail sobre a reprovação
+            if candidato and candidato.email and vaga:
+                try:
+                    email_service.enviar_notificacao_candidatura(
+                        candidato.email,
+                        candidato.nome or "Candidato",
+                        vaga.titulo,
+                        "Reprovado",
+                        nome_empresa=nome_empresa
+                    )
+                    logger.info(f"E-mail de reprovacao por documento invalido enviado para {candidato.email}")
+                except Exception as err:
+                    logger.error(f"Erro ao enviar e-mail de reprovacao ao candidato {candidato.email}: {err}")
+
+            # Notificar o recrutador por e-mail com alerta detalhado
+            if empresa and empresa.email and vaga:
+                try:
+                    email_service.enviar_alerta_documento_invalido(
+                        email_recrutador=empresa.email,
+                        nome_empresa=nome_empresa,
+                        titulo_vaga=vaga.titulo,
+                        nome_candidato=candidato.nome if candidato else "Candidato",
+                        email_candidato=candidato.email if candidato else "N/A",
+                        motivo_ia=motivo_ia
+                    )
+                    logger.info(f"E-mail de alerta de documento invalido enviado ao recrutador {empresa.email}")
+                except Exception as err:
+                    logger.error(f"Erro ao enviar alerta ao recrutador {empresa.email}: {err}")
+
+            # Notificar o recrutador na plataforma
+            if vaga and vaga.empresa_id:
+                criar_notificacao(
+                    db,
+                    vaga.empresa_id,
+                    "Documento invalido submetido — candidato reprovado",
+                    f"{candidato.nome if candidato else 'Um candidato'} submeteu um documento que nao e um CV "
+                    f"para a vaga '{vaga.titulo}'. A candidatura foi automaticamente reprovada."
+                )
+                db.commit()
+
+            return  # Encerra aqui — não executa a triagem normal
+
+        # ── PASSO 2: Documento é CV válido — executar triagem inteligente normal ──
         candidatura = use_case.processar_triagem_ia(candidatura_id=candidatura_id, curriculo_texto=curriculo_texto)
         if candidatura:
             db.commit()
-            vaga = vaga_repo.buscar_por_id(vaga_id)
             if vaga:
                 score_msg = f"{candidatura.match_score:.0f}%" if candidatura.match_score is not None else "N/A"
                 criar_notificacao(
@@ -86,11 +166,7 @@ def executar_triagem_ia_background(candidatura_id: int, curriculo_texto: str, va
                 )
                 db.commit()
 
-                # Dispara e-mail automático ao candidato informando a evolução para a fase de Entrevista com o nome da empresa
-                candidato = db.query(UsuarioModel).filter(UsuarioModel.id == candidato_id).first()
                 if candidato and candidato.email and vaga:
-                    empresa = db.query(UsuarioModel).filter(UsuarioModel.id == vaga.empresa_id).first() if vaga.empresa_id else None
-                    nome_empresa = empresa.nome if empresa and empresa.nome else "Empresa Recrutadora"
                     try:
                         email_service.enviar_notificacao_candidatura(
                             candidato.email,

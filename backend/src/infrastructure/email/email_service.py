@@ -571,3 +571,65 @@ class EmailService(EmailServicePort):
         """
         corpo_texto = f"Olá {nome_candidato},\n\nEntrevista agendada com a empresa: {empresa_rotulo}\nVaga: {titulo_vaga}\nData e hora: {data_hora}" + (f"\nLink: {link}" if link else "") + (f"\nInstruções: {notas}" if notas else "")
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
+
+    def enviar_alerta_documento_invalido(
+        self,
+        email_recrutador: str,
+        nome_empresa: str,
+        titulo_vaga: str,
+        nome_candidato: str,
+        email_candidato: str,
+        motivo_ia: str
+    ) -> bool:
+        """Notifica o recrutador que o documento submetido pelo candidato não é um currículo vitae."""
+        assunto = f"Alerta: Documento invalido submetido - {titulo_vaga}"
+        corpo_html = f"""
+        <h2 style="color: #0f172a; margin-top: 0;">Alerta de Documento Invalido</h2>
+        <p>Um candidato submeteu um documento para a vaga <strong>{titulo_vaga}</strong> que a nossa
+        inteligencia artificial identificou como <strong style="color: #dc2626;">nao sendo um curriculo vitae</strong>.</p>
+
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626;
+                    padding: 18px; margin: 20px 0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 6px 0; color: #64748b; width: 160px;"><strong>Empresa:</strong></td>
+              <td style="padding: 6px 0; color: #0f172a; font-weight: 700;">{nome_empresa}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;"><strong>Vaga:</strong></td>
+              <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{titulo_vaga}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;"><strong>Candidato:</strong></td>
+              <td style="padding: 6px 0; color: #0f172a;">{nome_candidato}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;"><strong>E-mail:</strong></td>
+              <td style="padding: 6px 0; color: #0f172a;">{email_candidato}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #64748b;"><strong>Decisao automatica:</strong></td>
+              <td style="padding: 6px 0; color: #dc2626; font-weight: 700;">Reprovado</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #ea580c;
+                    padding: 14px; border-radius: 8px; margin-top: 10px;">
+          <strong style="color: #9a3412;">Analise da IA:</strong>
+          <p style="margin: 6px 0 0 0; color: #7c2d12; font-size: 14px;">{motivo_ia}</p>
+        </div>
+
+        <p style="color: #64748b; font-size: 13px; margin-top: 20px;">
+          A candidatura foi automaticamente movida para a fase <strong>Reprovado</strong>. Pode aceder
+          ao portal para rever o documento caso considere necessario.
+        </p>
+        """
+        corpo_texto = (
+            f"Alerta: Documento invalido submetido\n\n"
+            f"Empresa: {nome_empresa}\nVaga: {titulo_vaga}\n"
+            f"Candidato: {nome_candidato} ({email_candidato})\n"
+            f"Decisao: Reprovado automaticamente\n\n"
+            f"Analise da IA: {motivo_ia}"
+        )
+        return self.enviar_email(email_recrutador, assunto, corpo_html, corpo_texto)
