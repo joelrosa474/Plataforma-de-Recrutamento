@@ -15,10 +15,11 @@ logger = logging.getLogger("rh_api")
 class EmailService(EmailServicePort):
     """
     Serviço de envio de e-mails transacionais.
-    Suporta três modos operacionais configurados via ambiente:
-    1. Resend API HTTP (se RESEND_API_KEY estiver configurado)
-    2. SMTP padrão (Gmail, SendGrid, Mailtrap, Amazon SES, etc., se SMTP_HOST estiver configurado)
-    3. Console / Mock (fallback seguro para desenvolvimento e testes automatizados)
+    Suporta quatro modos operacionais configurados via ambiente:
+    1. Brevo HTTP API (se BREVO_API_KEY configurado - ideal para nuvens como Render onde portas SMTP são bloqueadas)
+    2. Resend HTTP API (se RESEND_API_KEY configurado)
+    3. SMTP padrão (Gmail, SendGrid, Mailtrap, se portas 587/465 estiverem liberadas na rede)
+    4. Console / Mock (fallback seguro para desenvolvimento e testes automatizados)
     """
 
     def __init__(
@@ -31,6 +32,7 @@ class EmailService(EmailServicePort):
         from_name: Optional[str] = None,
         use_tls: bool = True,
         resend_api_key: Optional[str] = None,
+        brevo_api_key: Optional[str] = None,
     ):
         def _clean(val: Optional[str]) -> Optional[str]:
             if val is None:
@@ -47,6 +49,7 @@ class EmailService(EmailServicePort):
         self.from_name = _clean(from_name or os.getenv("SMTP_FROM_NAME")) or "Recrutamento RH"
         self.use_tls = use_tls if use_tls is not None else (os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1"))
         self.resend_api_key = _clean(resend_api_key or os.getenv("RESEND_API_KEY"))
+        self.brevo_api_key = _clean(brevo_api_key or os.getenv("BREVO_API_KEY"))
 
     def _render_layout(self, titulo: str, conteudo_html: str) -> str:
         """Gera o invólucro HTML padrão com estilo corporativo moderno e responsivo."""
@@ -164,7 +167,11 @@ class EmailService(EmailServicePort):
         html_completo = self._render_layout(assunto, corpo_html)
         texto_simples = corpo_texto or "Por favor, visualize este e-mail num cliente compatível com HTML."
 
-        # Opção 1: Resend HTTP API
+        # Opção 1: Brevo HTTP API (Porta 443 HTTPS - Funciona perfeitamente no Render e nuvem sem bloqueio)
+        if self.brevo_api_key:
+            return self._enviar_via_brevo(destinatario, assunto, html_completo, texto_simples)
+
+        # Opção 2: Resend HTTP API (Porta 443 HTTPS)
         if self.resend_api_key:
             sucesso = self._enviar_via_resend(destinatario, assunto, html_completo, texto_simples)
             if sucesso:
@@ -174,16 +181,44 @@ class EmailService(EmailServicePort):
                 return self._enviar_via_smtp(destinatario, assunto, html_completo, texto_simples)
             return False
 
-        # Opção 2: SMTP padrão
+        # Opção 3: SMTP padrão (Gmail, Outlook, etc. - Bloqueado em plataformas como Render/Free Tier)
         if self.smtp_host and self.smtp_user and self.smtp_password:
             return self._enviar_via_smtp(destinatario, assunto, html_completo, texto_simples)
 
-        # Opção 3: Console / Mock (desenvolvimento e testes)
+        # Opção 4: Console / Mock (desenvolvimento e testes)
         logger.info(
             f"[EMAIL MOCK/CONSOLE] De: '{self.from_name}' <{self.from_email}> | "
             f"Para: {destinatario} | Assunto: '{assunto}'"
         )
         return True
+
+    def _enviar_via_brevo(self, destinatario: str, assunto: str, html: str, texto: str) -> bool:
+        """Envia e-mail através da API REST do Brevo via HTTPS (Porta 443 - compatível com Render)."""
+        try:
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "api-key": self.brevo_api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+            payload = {
+                "sender": {"name": self.from_name, "email": self.from_email},
+                "to": [{"email": destinatario}],
+                "subject": assunto,
+                "htmlContent": html,
+                "textContent": texto,
+            }
+            with httpx.Client(timeout=12.0) as client:
+                resp = client.post(url, json=payload, headers=headers)
+                if resp.status_code in (200, 201):
+                    logger.info(f"E-mail enviado com sucesso via Brevo API para {destinatario}")
+                    return True
+                else:
+                    logger.error(f"Erro ao enviar e-mail via Brevo API ({resp.status_code}): {resp.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"Falha de conexão com a API do Brevo: {e}")
+            return False
 
     def _enviar_via_resend(self, destinatario: str, assunto: str, html: str, texto: str) -> bool:
         try:
