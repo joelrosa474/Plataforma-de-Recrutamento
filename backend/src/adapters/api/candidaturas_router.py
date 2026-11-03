@@ -86,17 +86,20 @@ def executar_triagem_ia_background(candidatura_id: int, curriculo_texto: str, va
                 )
                 db.commit()
 
-                # Dispara e-mail automático ao candidato informando a evolução para a fase de Entrevista
+                # Dispara e-mail automático ao candidato informando a evolução para a fase de Entrevista com o nome da empresa
                 candidato = db.query(UsuarioModel).filter(UsuarioModel.id == candidato_id).first()
                 if candidato and candidato.email and vaga:
+                    empresa = db.query(UsuarioModel).filter(UsuarioModel.id == vaga.empresa_id).first() if vaga.empresa_id else None
+                    nome_empresa = empresa.nome if empresa and empresa.nome else "Empresa Recrutadora"
                     try:
                         email_service.enviar_notificacao_candidatura(
                             candidato.email,
                             candidato.nome or "Candidato",
                             vaga.titulo,
-                            "Entrevista"
+                            "Entrevista",
+                            nome_empresa=nome_empresa
                         )
-                        logger.info(f"E-mail de avanço para Entrevista (IA) enviado para {candidato.email}")
+                        logger.info(f"E-mail de avanço para Entrevista (IA) enviado para {candidato.email} (Empresa: {nome_empresa})")
                     except Exception as err:
                         logger.error(f"Erro ao enviar e-mail de triagem IA para {candidato.email}: {err}")
     except Exception as e:
@@ -181,6 +184,17 @@ async def aplicar_para_vaga(
             db = use_case.candidatura_repo.db
             criar_notificacao(db, vaga.empresa_id, "Nova candidatura recebida", f"{current_user.nome} candidatou-se à vaga {vaga.titulo}.")
             db.commit()
+
+            # Dispara confirmação imediata por e-mail para o candidato com o nome da empresa recrutadora
+            empresa = db.query(UsuarioModel).filter(UsuarioModel.id == vaga.empresa_id).first()
+            nome_empresa = empresa.nome if empresa and empresa.nome else "Empresa Recrutadora"
+            background_tasks.add_task(
+                email_service.enviar_confirmacao_candidatura,
+                current_user.email,
+                current_user.nome or "Candidato",
+                vaga.titulo,
+                nome_empresa=nome_empresa
+            )
 
         return candidatura
     except ValueError as e:
@@ -347,15 +361,22 @@ def atualizar_fase(
         criar_notificacao(db, atualizada.candidato_id, "Atualização de candidatura", f"A sua candidatura avançou para: {request.fase_atual}.")
         db.commit()
 
-        # Dispara e-mail transacional ao candidato notificando a nova fase
+        # Dispara e-mail transacional ao candidato notificando a nova fase com nome da empresa
         candidato = db.query(UsuarioModel).filter(UsuarioModel.id == atualizada.candidato_id).first()
         if candidato and candidato.email:
+            nome_empresa = getattr(current_user, "nome", None)
+            if not nome_empresa and vaga and vaga.empresa_id:
+                empresa = db.query(UsuarioModel).filter(UsuarioModel.id == vaga.empresa_id).first()
+                nome_empresa = empresa.nome if empresa else None
+            nome_empresa = nome_empresa or "Empresa Recrutadora"
+
             background_tasks.add_task(
                 email_service.enviar_notificacao_candidatura,
                 candidato.email,
                 candidato.nome or "Candidato",
                 vaga.titulo,
-                request.fase_atual
+                request.fase_atual,
+                nome_empresa=nome_empresa
             )
 
     return atualizada
@@ -388,7 +409,22 @@ def agendar_entrevista(
     db.commit()
     candidato = db.query(UsuarioModel).filter(UsuarioModel.id == atualizada.candidato_id).first()
     if candidato and candidato.email:
-        background_tasks.add_task(email_service.enviar_convite_entrevista, candidato.email, candidato.nome or "Candidato", vaga.titulo, data_formatada, request.entrevista_link, request.entrevista_notas)
+        nome_empresa = getattr(current_user, "nome", None)
+        if not nome_empresa and vaga and vaga.empresa_id:
+            empresa = db.query(UsuarioModel).filter(UsuarioModel.id == vaga.empresa_id).first()
+            nome_empresa = empresa.nome if empresa else None
+        nome_empresa = nome_empresa or "Empresa Recrutadora"
+
+        background_tasks.add_task(
+            email_service.enviar_convite_entrevista,
+            candidato.email,
+            candidato.nome or "Candidato",
+            vaga.titulo,
+            data_formatada,
+            request.entrevista_link,
+            request.entrevista_notas,
+            nome_empresa=nome_empresa
+        )
     return atualizada
 
 

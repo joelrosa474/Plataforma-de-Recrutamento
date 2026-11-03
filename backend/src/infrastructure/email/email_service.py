@@ -315,56 +315,101 @@ class EmailService(EmailServicePort):
         corpo_texto = f"""Olá {nome},\n\nRecebemos um pedido de redefinição de palavra-passe. Aceda ao link para continuar:\n{link_redefinicao}\n\nSe não solicitou, ignore esta mensagem."""
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
 
+    def enviar_confirmacao_candidatura(
+        self,
+        destinatario: str,
+        nome_candidato: str,
+        titulo_vaga: str,
+        nome_empresa: Optional[str] = None
+    ) -> bool:
+        """Envia confirmação imediata ao candidato de que a candidatura foi recebida com sucesso."""
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        link_portal = f"{frontend_url}/candidate/applications"
+        empresa_rotulo = (nome_empresa or "").strip() or "Empresa Recrutadora"
+
+        assunto = f"Candidatura recebida: {titulo_vaga} - {empresa_rotulo}"
+        corpo_html = f"""
+        <h2 style="color: #0f172a; margin-top: 0;">Olá, {nome_candidato}!</h2>
+        <p>A sua candidatura para a vaga <strong>{titulo_vaga}</strong> na empresa <strong>{empresa_rotulo}</strong> foi submetida com sucesso!</p>
+        
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; padding: 18px; margin: 24px 0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b; width: 150px;"><strong>Empresa Recrutadora:</strong></td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">{empresa_rotulo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;"><strong>Vaga:</strong></td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 600;">{titulo_vaga}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;"><strong>Estado Inicial:</strong></td>
+              <td style="padding: 4px 0;"><span style="display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 13px; background-color: #fef3c7; color: #92400e;">Triagem</span></td>
+            </tr>
+          </table>
+        </div>
+
+        <p>O seu currículo já está disponível para análise pela equipa da <strong>{empresa_rotulo}</strong> e a nossa triagem inteligente já iniciou o processamento.</p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="{link_portal}" class="btn" target="_blank">Acompanhar Minhas Candidaturas</a>
+        </div>
+        """
+        corpo_texto = f"Olá {nome_candidato},\n\nA sua candidatura para '{titulo_vaga}' na empresa {empresa_rotulo} foi submetida com sucesso.\nAceda ao portal para acompanhar: {link_portal}"
+        return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
+
     def enviar_notificacao_candidatura(
         self,
         destinatario: str,
         nome_candidato: str,
         titulo_vaga: str,
-        nova_fase: str
+        nova_fase: str,
+        nome_empresa: Optional[str] = None
     ) -> bool:
-        """Notifica o candidato sobre atualização de fase no processo seletivo com conteúdo personalizado por fase."""
+        """Notifica o candidato sobre atualização de fase no processo seletivo com conteúdo personalizado por fase e empresa recrutadora."""
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
         link_portal = f"{frontend_url}/candidate/applications"
+        empresa_rotulo = (nome_empresa or "").strip() or "Empresa Recrutadora"
 
         if nova_fase == "Entrevista":
-            assunto = f"Parabéns! Foi selecionado(a) para a fase de Entrevista: {titulo_vaga}"
+            assunto = f"Parabéns! Foi selecionado(a) para a fase de Entrevista: {titulo_vaga} - {empresa_rotulo}"
             titulo_cabecalho = f"Parabéns, {nome_candidato}!"
             cor_destaque = "#2563eb"
             badge_cor = "background-color: #dbeafe; color: #1e40af;"
             mensagem_fase = (
-                f"<p style='font-size: 16px; color: #1e293b;'>O seu perfil destacou-se e foi <strong>selecionado(a) para a fase de Entrevista</strong> na vaga <strong>{titulo_vaga}</strong>!</p>"
-                "<p>A equipa de recrutamento entrará em contacto ou disponibilizará o link e data da entrevista diretamente na plataforma. Aceda ao portal para acompanhar todas as atualizações.</p>"
+                f"<p style='font-size: 16px; color: #1e293b;'>O seu perfil destacou-se e foi <strong>selecionado(a) para a fase de Entrevista</strong> na vaga <strong>{titulo_vaga}</strong> da empresa <strong>{empresa_rotulo}</strong>!</p>"
+                f"<p>A equipa de recrutamento da <strong>{empresa_rotulo}</strong> entrará em contacto ou disponibilizará o link e a data da entrevista diretamente na plataforma. Aceda ao portal para acompanhar todas as atualizações.</p>"
             )
             texto_botao = "Aceder às Minhas Candidaturas"
         elif nova_fase == "Contratado":
-            assunto = f"Parabéns! Foi contratado(a) para a vaga: {titulo_vaga}"
+            assunto = f"Parabéns! Foi contratado(a) para a vaga: {titulo_vaga} - {empresa_rotulo}"
             titulo_cabecalho = f"Excelente notícia, {nome_candidato}!"
             cor_destaque = "#10b981"
             badge_cor = "background-color: #d1fae5; color: #065f46;"
             mensagem_fase = (
-                f"<p style='font-size: 16px; color: #1e293b;'>🎉 Temos o enorme prazer de informar que foi <strong>aprovado(a) e contratado(a)</strong> para a vaga <strong>{titulo_vaga}</strong>!</p>"
-                "<p>A empresa responsável entrará em contacto muito em breve para alinhar os detalhes da sua contratação e os passos de acolhimento. Parabéns por esta grande conquista!</p>"
+                f"<p style='font-size: 16px; color: #1e293b;'>🎉 Temos o enorme prazer de informar que foi <strong>aprovado(a) e contratado(a)</strong> para a vaga <strong>{titulo_vaga}</strong> na empresa <strong>{empresa_rotulo}</strong>!</p>"
+                f"<p>A equipa da <strong>{empresa_rotulo}</strong> entrará em contacto muito em breve para alinhar os detalhes da sua contratação e os passos de acolhimento. Parabéns por esta grande conquista!</p>"
             )
             texto_botao = "Ver Detalhes da Contratação"
         elif nova_fase == "Reprovado":
-            assunto = f"Atualização sobre a sua candidatura: {titulo_vaga}"
+            assunto = f"Atualização sobre a sua candidatura: {titulo_vaga} - {empresa_rotulo}"
             titulo_cabecalho = f"Olá, {nome_candidato}"
             cor_destaque = "#64748b"
             badge_cor = "background-color: #f1f5f9; color: #475569;"
             mensagem_fase = (
-                f"<p>Agradecemos sinceramente o seu interesse e o tempo dedicado ao candidatar-se à vaga <strong>{titulo_vaga}</strong>.</p>"
-                "<p>Após avaliação cuidadosa, a empresa decidiu prosseguir com outros perfis cujas competências atendem mais diretamente às necessidades operacionais imediatas para esta posição.</p>"
+                f"<p>Agradecemos sinceramente o seu interesse e o tempo dedicado ao candidatar-se à vaga <strong>{titulo_vaga}</strong> na empresa <strong>{empresa_rotulo}</strong>.</p>"
+                f"<p>Após avaliação cuidadosa, a equipa de recrutamento da <strong>{empresa_rotulo}</strong> decidiu prosseguir com outros perfis cujas competências atendem mais diretamente às necessidades operacionais imediatas para esta posição.</p>"
                 "<p>O seu currículo continuará registado no nosso <strong>Banco de Talentos</strong>, e novas vagas recomendadas serão disponibilizadas no seu painel.</p>"
             )
             texto_botao = "Explorar Outras Vagas Disponíveis"
             link_portal = f"{frontend_url}/candidate/dashboard"
         else:
-            assunto = f"Atualização da sua candidatura: {titulo_vaga}"
+            assunto = f"Atualização da sua candidatura: {titulo_vaga} - {empresa_rotulo}"
             titulo_cabecalho = f"Olá, {nome_candidato}!"
             cor_destaque = "#2563eb"
             badge_cor = "background-color: #e0e7ff; color: #3730a3;"
             mensagem_fase = (
-                f"<p>A sua candidatura para a vaga <strong>{titulo_vaga}</strong> teve uma atualização de estado.</p>"
+                f"<p>A sua candidatura para a vaga <strong>{titulo_vaga}</strong> na empresa <strong>{empresa_rotulo}</strong> teve uma atualização de estado.</p>"
             )
             texto_botao = "Acompanhar Candidatura"
 
@@ -372,31 +417,69 @@ class EmailService(EmailServicePort):
         <h2 style="color: #0f172a; margin-top: 0;">{titulo_cabecalho}</h2>
         {mensagem_fase}
         
-        <div style="background-color: #f8fafc; border-left: 4px solid {cor_destaque}; padding: 16px; margin: 24px 0; border-radius: 6px;">
-          <p style="margin: 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Novo Estado no Processo:</p>
-          <p style="margin: 6px 0 0; font-size: 18px; font-weight: 700;">
-            <span style="display: inline-block; padding: 4px 12px; border-radius: 6px; font-weight: 700; {badge_cor}">{nova_fase}</span>
-          </p>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid {cor_destaque}; padding: 18px; margin: 24px 0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b; width: 150px;"><strong>Empresa Recrutadora:</strong></td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">{empresa_rotulo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;"><strong>Vaga:</strong></td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 600;">{titulo_vaga}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;"><strong>Estado Atual:</strong></td>
+              <td style="padding: 4px 0;"><span style="display: inline-block; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 13px; {badge_cor}">{nova_fase}</span></td>
+            </tr>
+          </table>
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
           <a href="{link_portal}" class="btn" target="_blank">{texto_botao}</a>
         </div>
         """
-        corpo_texto = f"Olá {nome_candidato},\n\nA sua candidatura para '{titulo_vaga}' foi atualizada para: {nova_fase}.\nAceda ao portal para acompanhar: {link_portal}"
+        corpo_texto = f"Olá {nome_candidato},\n\nEmpresa: {empresa_rotulo}\nVaga: {titulo_vaga}\nEstado: {nova_fase}\n\nAceda ao portal para acompanhar: {link_portal}"
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)
 
-    def enviar_convite_entrevista(self, destinatario: str, nome_candidato: str, titulo_vaga: str, data_hora: str, link: Optional[str], notas: Optional[str]) -> bool:
-        """Envia a confirmação imediata do agendamento de entrevista."""
-        assunto = f"Entrevista agendada: {titulo_vaga}"
-        link_html = f'<p><a href="{link}" class="btn" target="_blank">Entrar na entrevista</a></p>' if link else ""
-        notas_html = f"<p><strong>Informações da empresa:</strong><br>{notas}</p>" if notas else ""
+    def enviar_convite_entrevista(
+        self,
+        destinatario: str,
+        nome_candidato: str,
+        titulo_vaga: str,
+        data_hora: str,
+        link: Optional[str],
+        notas: Optional[str],
+        nome_empresa: Optional[str] = None
+    ) -> bool:
+        """Envia a confirmação imediata do agendamento de entrevista incluindo a empresa recrutadora."""
+        empresa_rotulo = (nome_empresa or "").strip() or "Empresa Recrutadora"
+        assunto = f"Entrevista agendada: {titulo_vaga} - {empresa_rotulo}"
+        link_html = f'<p style="margin-top: 15px;"><a href="{link}" class="btn" target="_blank">Aceder à Sala da Entrevista</a></p>' if link else ""
+        notas_html = f"<div style='margin-top: 15px; padding: 12px; background: #fff; border-radius: 6px; border: 1px dashed #cbd5e1;'><strong style='color: #475569;'>Instruções da {empresa_rotulo}:</strong><p style='margin: 6px 0 0 0; color: #334155;'>{notas}</p></div>" if notas else ""
         corpo_html = f"""
         <h2 style="color: #0f172a; margin-top: 0;">Olá, {nome_candidato}!</h2>
-        <p>A sua entrevista para a vaga <strong>{titulo_vaga}</strong> foi agendada.</p>
-        <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 16px; margin: 20px 0; border-radius: 4px;"><strong>Data e hora:</strong> {data_hora}</div>
-        {link_html}{notas_html}
-        <p>Confirme os detalhes no portal e prepare-se para a conversa. Boa sorte!</p>
+        <p>A sua entrevista com a empresa <strong>{empresa_rotulo}</strong> para a vaga <strong>{titulo_vaga}</strong> foi agendada.</p>
+        
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; padding: 18px; margin: 20px 0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b; width: 150px;"><strong>Empresa Recrutadora:</strong></td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 700;">{empresa_rotulo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;"><strong>Vaga:</strong></td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 600;">{titulo_vaga}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;"><strong>Data e Hora:</strong></td>
+              <td style="padding: 4px 0; color: #2563eb; font-weight: 700;">{data_hora}</td>
+            </tr>
+          </table>
+          {notas_html}
+        </div>
+        
+        {link_html}
+        <p style="color: #64748b; font-size: 13px;">Confirme os detalhes no portal e prepare-se para a conversa. Desejamos-lhe muito sucesso!</p>
         """
-        corpo_texto = f"Olá {nome_candidato},\n\nA entrevista para '{titulo_vaga}' foi agendada para {data_hora}." + (f"\nLink: {link}" if link else "") + (f"\nInformações: {notas}" if notas else "")
+        corpo_texto = f"Olá {nome_candidato},\n\nEntrevista agendada com a empresa: {empresa_rotulo}\nVaga: {titulo_vaga}\nData e hora: {data_hora}" + (f"\nLink: {link}" if link else "") + (f"\nInstruções: {notas}" if notas else "")
         return self.enviar_email(destinatario, assunto, corpo_html, corpo_texto)

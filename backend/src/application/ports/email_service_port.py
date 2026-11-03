@@ -32,7 +32,33 @@ class EmailServicePort(ABC):
         destinatario: str,
         nome_candidato: str,
         titulo_vaga: str,
-        nova_fase: str
+        nova_fase: str,
+        nome_empresa: Optional[str] = None
     ) -> bool:
-        """Notifica o candidato sobre atualização na fase da sua candidatura."""
+        """Notifica o candidato sobre atualização na fase da sua candidatura incluindo a empresa recrutadora."""
+        pass
+
+    @abstractmethod
+    def enviar_confirmacao_candidatura(
+        self,
+        destinatario: str,
+        nome_candidato: str,
+        titulo_vaga: str,
+        nome_empresa: Optional[str] = None
+    ) -> bool:
+        """Confirma a receção da candidatura ao candidato indicando a empresa recrutadora."""
+        pass
+
+    @abstractmethod
+    def enviar_convite_entrevista(
+        self,
+        destinatario: str,
+        nome_candidato: str,
+        titulo_vaga: str,
+        data_hora: str,
+        link: Optional[str],
+        notas: Optional[str],
+        nome_empresa: Optional[str] = None
+    ) -> bool:
+        """Envia confirmação do agendamento de entrevista com os dados da empresa recrutadora."""
         pass
