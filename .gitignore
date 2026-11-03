@@ -52,4 +52,5 @@ desktop.ini
 *.log
 .vscode/
 .idea/
-"comando do servidor.txt"
+*comando*.txt
+*execu*.txt

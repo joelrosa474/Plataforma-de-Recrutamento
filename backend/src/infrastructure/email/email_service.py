@@ -32,14 +32,21 @@ class EmailService(EmailServicePort):
         use_tls: bool = True,
         resend_api_key: Optional[str] = None,
     ):
-        self.smtp_host = smtp_host or os.getenv("SMTP_HOST")
-        self.smtp_port = smtp_port or int(os.getenv("SMTP_PORT", "587"))
-        self.smtp_user = smtp_user or os.getenv("SMTP_USER")
-        self.smtp_password = smtp_password or os.getenv("SMTP_PASSWORD")
-        self.from_email = from_email or os.getenv("SMTP_FROM_EMAIL", "noreply@recrutamento.local")
-        self.from_name = from_name or os.getenv("SMTP_FROM_NAME", "Recrutamento RH")
+        def _clean(val: Optional[str]) -> Optional[str]:
+            if val is None:
+                return None
+            s = str(val).strip()
+            return s if s else None
+
+        self.smtp_host = _clean(smtp_host or os.getenv("SMTP_HOST"))
+        raw_port = str(os.getenv("SMTP_PORT", "587")).strip()
+        self.smtp_port = smtp_port or (int(raw_port) if raw_port.isdigit() else 587)
+        self.smtp_user = _clean(smtp_user or os.getenv("SMTP_USER"))
+        self.smtp_password = _clean(smtp_password or os.getenv("SMTP_PASSWORD"))
+        self.from_email = _clean(from_email or os.getenv("SMTP_FROM_EMAIL")) or "noreply@recrutamento.local"
+        self.from_name = _clean(from_name or os.getenv("SMTP_FROM_NAME")) or "Recrutamento RH"
         self.use_tls = use_tls if use_tls is not None else (os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1"))
-        self.resend_api_key = resend_api_key or os.getenv("RESEND_API_KEY")
+        self.resend_api_key = _clean(resend_api_key or os.getenv("RESEND_API_KEY"))
 
     def _render_layout(self, titulo: str, conteudo_html: str) -> str:
         """Gera o invólucro HTML padrão com estilo corporativo moderno e responsivo."""
@@ -159,7 +166,13 @@ class EmailService(EmailServicePort):
 
         # Opção 1: Resend HTTP API
         if self.resend_api_key:
-            return self._enviar_via_resend(destinatario, assunto, html_completo, texto_simples)
+            sucesso = self._enviar_via_resend(destinatario, assunto, html_completo, texto_simples)
+            if sucesso:
+                return True
+            if self.smtp_host and self.smtp_user and self.smtp_password:
+                logger.warning("Falha no Resend API; tentando envio via SMTP padrão configurado...")
+                return self._enviar_via_smtp(destinatario, assunto, html_completo, texto_simples)
+            return False
 
         # Opção 2: SMTP padrão
         if self.smtp_host and self.smtp_user and self.smtp_password:
@@ -192,7 +205,11 @@ class EmailService(EmailServicePort):
                     logger.info(f"E-mail enviado com sucesso via Resend para {destinatario}")
                     return True
                 else:
-                    logger.error(f"Erro ao enviar e-mail via Resend ({resp.status_code}): {resp.text}")
+                    logger.error(
+                        f"Erro ao enviar e-mail via Resend ({resp.status_code}): {resp.text}. "
+                        "Atenção: No plano gratuito do Resend sem domínio verificado, use 'SMTP_FROM_EMAIL=onboarding@resend.dev' "
+                        "e envie apenas para o e-mail da sua conta Resend, ou configure SMTP_HOST/SMTP_USER/SMTP_PASSWORD para envio irrestrito."
+                    )
                     return False
         except Exception as e:
             logger.error(f"Falha de conexão com Resend API: {e}")
