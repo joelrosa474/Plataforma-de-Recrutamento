@@ -1,10 +1,13 @@
 import os
 import json
+import logging
 import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from src.application.ports.ai_screener_port import AIScreenerPort
+
+logger = logging.getLogger("rh_api")
 
 
 class HabilidadesSchema(BaseModel):
@@ -43,8 +46,8 @@ class GeminiScreenerAdapter(AIScreenerPort):
         else:
             self.client = genai.Client(api_key=api_key)
 
-        # gemini-flash-latest é o modelo oficial mais estável e rápido para NLP e triagem
-        self.model_name = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+        # Modelo oficial estável. Pode ser sobrescrito via variável GEMINI_MODEL.
+        self.model_name = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 
     def avaliar_candidatura(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> tuple[float, str, dict]:
         if not self.client:
@@ -96,7 +99,7 @@ class GeminiScreenerAdapter(AIScreenerPort):
                 if attempt < 2 and ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)):
                     time.sleep(1.5 * (attempt + 1))
                     continue
-                print(f"Erro ao avaliar candidatura com Gemini: {e}")
+                logger.error(f"[Gemini] Erro ao avaliar candidatura (tentativa {attempt+1}/3) — modelo: {self.model_name} — erro: {e}")
                 return 50.0, "Não foi possível gerar a justificativa detalhada devido a uma instabilidade temporária na API.", self._analise_padrao()
 
         return 50.0, "Análise concluída com pontuação padrão.", self._analise_padrao()
