@@ -28,6 +28,8 @@ function AuthPageContent() {
   const [successMessage, setSuccessMessage] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [debugLink, setDebugLink] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [registeredPassword, setRegisteredPassword] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -69,7 +71,7 @@ function AuthPageContent() {
         setLoadingSubmessage("Aguarde enquanto processamos o seu pedido.");
         const res = await api.requestPasswordReset(email);
         setSuccessMessage(res.message);
-        if (res.debug_token) {
+        if (res.debug_token && process.env.NODE_ENV !== "production") {
           setDebugLink(`/auth?mode=reset&token=${res.debug_token}`);
         }
         return;
@@ -106,6 +108,8 @@ function AuthPageContent() {
         setLoading(true);
         setLoadingMessage("A criar a sua conta…");
         setLoadingSubmessage("Estamos a preparar o seu perfil na plataforma É Salú.");
+        setRegisteredEmail(email);
+        setRegisteredPassword(senha);
         await api.register({
           nome: String(data.get("nome")),
           email,
@@ -143,16 +147,17 @@ function AuthPageContent() {
   async function handleSuccessModalAction() {
     // After account creation, do auto-login
     setShowSuccessModal(false);
-    const form = document.querySelector("form");
-    if (!form) return;
-    const data = new FormData(form);
-    const email = String(data.get("email") || "");
-    const senha = String(data.get("senha") || "");
+    const loginEmail = registeredEmail;
+    const loginPassword = registeredPassword;
+    if (!loginEmail || !loginPassword) {
+      setMode("login");
+      return;
+    }
     try {
       setLoading(true);
       setLoadingMessage("A entrar na sua nova conta…");
       setLoadingSubmessage("Bem-vindo à plataforma É Salú!");
-      const tokenData = await api.login(email, senha);
+      const tokenData = await api.login(loginEmail, loginPassword);
       const user: SessionUser = tokenData.usuario;
       saveSession(tokenData.access_token, user);
       router.push(

@@ -21,12 +21,21 @@ class UsuarioModel(Base):
 
     def get_competencias_list(self):
         try:
-            return json.loads(self.competencias or "[]")
+            val = json.loads(self.competencias or "[]")
+            return val if isinstance(val, list) else []
         except Exception:
             return []
 
     def set_competencias_list(self, competencias):
-        self.competencias = json.dumps(competencias)
+        if competencias is None:
+            competencias = []
+        elif isinstance(competencias, str):
+            try:
+                parsed = json.loads(competencias)
+                competencias = parsed if isinstance(parsed, list) else [competencias]
+            except Exception:
+                competencias = [c.strip() for c in competencias.split(",") if c.strip()]
+        self.competencias = json.dumps(competencias, ensure_ascii=False)
 
 class VagaModel(Base):
     __tablename__ = "vagas"
@@ -44,12 +53,21 @@ class VagaModel(Base):
 
     def get_requisitos_list(self):
         try:
-            return json.loads(self.requisitos)
-        except:
+            val = json.loads(self.requisitos or "[]")
+            return val if isinstance(val, list) else []
+        except Exception:
             return []
 
     def set_requisitos_list(self, req_list):
-        self.requisitos = json.dumps(req_list)
+        if req_list is None:
+            req_list = []
+        elif isinstance(req_list, str):
+            try:
+                parsed = json.loads(req_list)
+                req_list = parsed if isinstance(parsed, list) else [req_list]
+            except Exception:
+                req_list = [r.strip() for r in req_list.split(",") if r.strip()]
+        self.requisitos = json.dumps(req_list, ensure_ascii=False)
 
 class CandidaturaModel(Base):
     __tablename__ = "candidaturas"

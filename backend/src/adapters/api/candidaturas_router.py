@@ -32,6 +32,11 @@ email_service = EmailService()
 def carregar_analise_match(valor: Optional[str]) -> Optional[dict[str, Any]]:
     if not valor:
         return None
+    try:
+        analise = json.loads(valor)
+        return analise if isinstance(analise, dict) else None
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 
 def carregar_roteiro_entrevista(valor: Optional[str]) -> Optional[list[dict[str, Any]]]:
@@ -40,12 +45,7 @@ def carregar_roteiro_entrevista(valor: Optional[str]) -> Optional[list[dict[str,
     try:
         roteiro = json.loads(valor)
         return roteiro if isinstance(roteiro, list) else None
-    except json.JSONDecodeError:
-        return None
-    try:
-        analise = json.loads(valor)
-        return analise if isinstance(analise, dict) else None
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         return None
 
 
@@ -226,6 +226,11 @@ async def aplicar_para_vaga(
         file_bytes = await curriculo_pdf.read()
         PDFService.validate_pdf_file(curriculo_pdf.filename or "", curriculo_pdf.content_type or "", file_bytes)
         curriculo_texto = PDFService.extract_text_from_pdf(file_bytes)
+        if not curriculo_texto or len(curriculo_texto.strip()) < 30:
+            raise ValueError(
+                "O PDF do currículo não contém texto legível suficiente (pode ser uma imagem escaneada ou estar protegido). "
+                "Por favor envie um currículo em formato PDF com texto pesquisável."
+            )
 
         # Salva o arquivo de forma segura através do StorageService
         saved_path, clean_name = storage_service.salvar_curriculo(
@@ -431,7 +436,10 @@ def atualizar_fase(
         raise HTTPException(status_code=404, detail="Candidatura não encontrada")
     if request.fase_atual not in {"Triagem", "Entrevista", "Contratado", "Reprovado"}:
         raise HTTPException(status_code=400, detail="Fase inválida")
-    atualizada = use_case.atualizar_fase(candidatura_id, request.fase_atual)
+    try:
+        atualizada = use_case.atualizar_fase(candidatura_id, request.fase_atual)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if atualizada:
         db = use_case.candidatura_repo.db
         criar_notificacao(db, atualizada.candidato_id, "Atualização de candidatura", f"A sua candidatura avançou para: {request.fase_atual}.")

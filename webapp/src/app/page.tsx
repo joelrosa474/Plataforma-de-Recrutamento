@@ -77,25 +77,35 @@ export default function Home() {
               Conectamos empresas aos melhores talentos e profissionais às oportunidades certas. Explore milhares de vagas, candidate-se online e impulsione a sua carreira.
             </p>
 
-            <div className="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-2 sm:p-2.5 shadow-xl shadow-sky-950/5">
+            <form
+              action="/auth"
+              method="GET"
+              className="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-2 sm:p-2.5 shadow-xl shadow-sky-950/5"
+            >
               <div className="flex flex-col gap-2 sm:flex-row">
                 <label className="relative flex min-h-12 sm:min-h-14 flex-1 items-center">
                   <Search className="pointer-events-none absolute left-3.5 sm:left-4 h-5 w-5 text-slate-400" />
                   <input
+                    type="hidden"
+                    name="next"
+                    value="/candidate/dashboard"
+                  />
+                  <input
                     type="text"
+                    name="q"
                     placeholder="Cargo, empresa ou palavra-chave..."
                     className="h-12 sm:h-14 w-full rounded-xl border border-transparent bg-slate-50 pl-11 sm:pl-12 pr-4 text-base sm:text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:bg-white"
                   />
                 </label>
-                <Link
-                  href="/auth"
-                  className="inline-flex h-12 sm:h-14 items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 sm:px-7 text-sm font-bold text-white transition hover:bg-sky-700 shadow-sm"
+                <button
+                  type="submit"
+                  className="inline-flex h-12 sm:h-14 items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 sm:px-7 text-sm font-bold text-white transition hover:bg-sky-700 shadow-sm cursor-pointer"
                 >
                   Procurar vagas
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </button>
               </div>
-            </div>
+            </form>
 
             <div className="mt-6 sm:mt-8 flex flex-wrap gap-2.5 sm:gap-3 text-xs sm:text-sm font-semibold text-slate-600">
               <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2">

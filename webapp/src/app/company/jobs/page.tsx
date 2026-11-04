@@ -13,16 +13,23 @@ const clean = (value: FormDataEntryValue | null) =>
 export default function CompanyJobsPage() {
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<ApiJob | null>(null);
 
   const load = async () => {
     const session = getSession();
-    if (!session) return;
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
       setJobs(await api.myJobs(session.token));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível carregar vagas.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -244,6 +251,7 @@ export default function CompanyJobsPage() {
                 {/* Ações da Vaga */}
                 <div className="flex flex-wrap items-center gap-2 sm:self-start pt-2 sm:pt-0 border-t border-slate-100 sm:border-0">
                   <button
+                    type="button"
                     onClick={() => setEditing(job)}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
                   >
@@ -251,6 +259,7 @@ export default function CompanyJobsPage() {
                   </button>
                   {job.status === "Aberta" && (
                     <button
+                      type="button"
                       onClick={() => action(job.id, "pause")}
                       className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50/50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition"
                     >
@@ -259,6 +268,7 @@ export default function CompanyJobsPage() {
                   )}
                   {job.status !== "Fechada" && (
                     <button
+                      type="button"
                       onClick={() => action(job.id, "close")}
                       className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50/50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition"
                     >
@@ -266,6 +276,7 @@ export default function CompanyJobsPage() {
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={() => action(job.id, "delete")}
                     className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
                     title="Eliminar vaga"
@@ -277,7 +288,11 @@ export default function CompanyJobsPage() {
             </article>
           ))}
 
-          {jobs.length === 0 && (
+          {loading ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+              A carregar vagas…
+            </div>
+          ) : jobs.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
               <Briefcase className="mx-auto h-10 w-10 text-slate-300" />
               <p className="mt-3 text-base font-semibold text-slate-700">Ainda não publicou vagas</p>
@@ -285,7 +300,7 @@ export default function CompanyJobsPage() {
                 Preencha o formulário ao lado para abrir o seu primeiro processo seletivo.
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
     </div>

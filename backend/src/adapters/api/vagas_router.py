@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+import logging
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -6,10 +7,11 @@ from src.domain.entities.vaga import Vaga
 from src.application.use_cases.gerenciar_vagas import GerenciarVagasUseCase
 from src.infrastructure.repositories.vaga_repository_sqlalchemy import VagaRepositorySQLAlchemy
 from src.adapters.api.dependencies import get_current_empresa, get_current_candidato
-from src.infrastructure.database.config import get_db
+from src.infrastructure.database.config import get_db, SessionLocal
 from src.infrastructure.database.models import CandidaturaModel, UsuarioModel
 from src.adapters.api.notificacoes_router import criar_notificacao
 
+logger = logging.getLogger("rh_api")
 router = APIRouter(prefix="/api/vagas", tags=["Vagas"])
 
 def get_vagas_use_case(db: Session = Depends(get_db)):
@@ -47,15 +49,15 @@ def recomendar_vaga(vaga: Vaga, competencias: List[str], experiencia: str | None
     """Calcula uma recomendação determinística e explicável, sem inferir dados sensíveis."""
     competencias_normalizadas = [normalizar(item) for item in competencias if normalizar(item)]
     experiencia_normalizada = normalizar(experiencia)
-    requisitos = [normalizar(item) for item in vaga.requisitos if normalizar(item)]
+    requisitos_pares = [(normalizar(item), item) for item in vaga.requisitos if normalizar(item)]
     correspondentes = [
-        requisito for requisito in requisitos
-        if any(requisito in competencia or competencia in requisito for competencia in competencias_normalizadas)
+        original for norm, original in requisitos_pares
+        if any(norm in comp or comp in norm for comp in competencias_normalizadas)
     ]
-    score = (70 * len(correspondentes) / len(requisitos)) if requisitos else 35
+    score = (70 * len(correspondentes) / len(requisitos_pares)) if requisitos_pares else 35
     motivos: List[str] = []
     if correspondentes:
-        motivos.append(f"Competências alinhadas: {', '.join(vaga.requisitos[requisitos.index(item)] for item in correspondentes[:3])}.")
+        motivos.append(f"Competências alinhadas: {', '.join(correspondentes[:3])}.")
 
     if normalizar(vaga.area) and normalizar(vaga.area) in experiencia_normalizada:
         score += 10
@@ -72,8 +74,27 @@ def recomendar_vaga(vaga: Vaga, competencias: List[str], experiencia: str | None
         motivos.append("Recomendação baseada nas informações atualmente preenchidas no seu perfil.")
     return round(min(score, 100), 1), motivos
 
+
+def notificar_candidatos_nova_vaga(vaga_id: int, vaga_titulo: str, nome_empresa: str):
+    db = SessionLocal()
+    try:
+        candidatos = db.query(UsuarioModel.id).filter(UsuarioModel.tipo_perfil == "Candidato").order_by(UsuarioModel.id.desc()).limit(200).all()
+        for (c_id,) in candidatos:
+            criar_notificacao(db, c_id, "Nova vaga disponível", f"{vaga_titulo} foi publicada por {nome_empresa}.")
+        db.commit()
+    except Exception as e:
+        logger.error(f"Erro ao notificar candidatos de nova vaga {vaga_id}: {e}")
+    finally:
+        db.close()
+
+
 @router.post("/", response_model=Vaga)
-def criar_vaga(request: CriarVagaRequest, current_user = Depends(get_current_empresa), use_case: GerenciarVagasUseCase = Depends(get_vagas_use_case), db: Session = Depends(get_db)):
+def criar_vaga(
+    request: CriarVagaRequest,
+    background_tasks: BackgroundTasks,
+    current_user = Depends(get_current_empresa),
+    use_case: GerenciarVagasUseCase = Depends(get_vagas_use_case)
+):
     vaga = use_case.criar_vaga(
         empresa_id=current_user.id,
         titulo=request.titulo,
@@ -83,9 +104,12 @@ def criar_vaga(request: CriarVagaRequest, current_user = Depends(get_current_emp
         modalidade=request.modalidade,
         area=request.area,
     )
-    for candidato in db.query(UsuarioModel).filter(UsuarioModel.tipo_perfil == "Candidato").all():
-        criar_notificacao(db, candidato.id, "Nova vaga disponível", f"{vaga.titulo} foi publicada por {current_user.nome}.")
-    db.commit()
+    background_tasks.add_task(
+        notificar_candidatos_nova_vaga,
+        vaga.id,
+        vaga.titulo,
+        current_user.nome or "Empresa Recrutadora"
+    )
     return vaga
 
 @router.get("/", response_model=List[Vaga])

@@ -72,7 +72,7 @@ class AdminVagaResponse(BaseModel):
 
 @router.get("/resumo", response_model=ResumoAdmin)
 def resumo(_: object = Depends(get_current_admin), db: Session = Depends(get_db)):
-    sete_dias_atras = datetime.now(timezone.utc) - timedelta(days=7)
+    sete_dias_atras = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
 
     # Contagens gerais
     total_usuarios = db.query(UsuarioModel).count()

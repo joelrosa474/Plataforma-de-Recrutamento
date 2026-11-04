@@ -2,10 +2,14 @@
 
 import { ChangeEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BriefcaseBusiness, FileText, Search, X, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
 import { api, ApiJob, getSession, RecommendedJob } from "@/lib/api";
+import { LoadingModal } from "@/components/ui/LoadingModal";
+import { SuccessModal } from "@/components/ui/SuccessModal";
 
 export default function CandidateDashboard() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [query, setQuery] = useState("");
   const [localizacao, setLocalizacao] = useState("");
@@ -17,6 +21,7 @@ export default function CandidateDashboard() {
   const [resume, setResume] = useState<File | null>(null);
   const [applying, setApplying] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [recommendations, setRecommendations] = useState<RecommendedJob[]>([]);
 
   useEffect(() => {
@@ -35,8 +40,8 @@ export default function CandidateDashboard() {
 
   async function apply() {
     const session = getSession();
-    if (!session || session.user.tipo_perfil === "Empresa") {
-      setError("Entre com uma conta de candidato antes de se candidatar.");
+    if (!session || session.user.tipo_perfil !== "Candidato") {
+      setError("Inicie sessão com uma conta de Candidato para se candidatar.");
       return;
     }
     if (!selected || !resume) {
@@ -51,6 +56,7 @@ export default function CandidateDashboard() {
       setSelected(null);
       setResume(null);
       setSuccessMessage(`A sua candidatura para "${vagaTitulo}" foi enviada com sucesso! A nossa IA está a analisar o seu perfil.`);
+      setShowSuccessModal(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível enviar a candidatura.");
     } finally {
@@ -227,6 +233,24 @@ export default function CandidateDashboard() {
         </div>
       )}
 
+      {/* Loading Modal durante a submissão */}
+      <LoadingModal
+        isOpen={applying}
+        message="A submeter a sua candidatura…"
+        submessage="Estamos a carregar o seu currículo e a iniciar o processamento inteligente."
+      />
+
+      {/* Success Modal após candidatura enviada */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        title="Candidatura enviada com sucesso!"
+        message={successMessage}
+        submessage="Pode acompanhar o estado da sua candidatura em tempo real na página Minhas Candidaturas."
+        onClose={() => setShowSuccessModal(false)}
+        actionLabel="Ver Minhas Candidaturas"
+        onAction={() => router.push("/candidate/applications")}
+      />
+
       {/* Modal de Candidatura Totalmente Responsivo */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto">
@@ -241,7 +265,7 @@ export default function CandidateDashboard() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => { setSelected(null); setError(""); setResume(null); }}
                 aria-label="Fechar"
                 className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
               >
@@ -273,7 +297,7 @@ export default function CandidateDashboard() {
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => { setSelected(null); setError(""); setResume(null); }}
                 className="w-full sm:w-auto rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
               >
                 Cancelar

@@ -10,6 +10,7 @@ export function RouteGuard({ allowed, children }: { allowed: Role[]; children: R
   const router = useRouter();
   const pathname = usePathname();
   const [allowedHere, setAllowedHere] = useState(false);
+  const allowedKey = allowed.join(",");
 
   useEffect(() => {
     const session = getSession();
@@ -27,7 +28,13 @@ export function RouteGuard({ allowed, children }: { allowed: Role[]; children: R
         if (!active) return;
         saveSession(undefined, user);
         if (!allowed.includes(user.tipo_perfil as Role)) {
-          router.replace(user.tipo_perfil === "Empresa" ? "/company/dashboard" : "/candidate/dashboard");
+          const dest =
+            user.tipo_perfil === "Empresa"
+              ? "/company/dashboard"
+              : user.tipo_perfil === "Administrador"
+              ? "/admin/dashboard"
+              : "/candidate/dashboard";
+          router.replace(dest);
           return;
         }
         setAllowedHere(true);
@@ -41,7 +48,7 @@ export function RouteGuard({ allowed, children }: { allowed: Role[]; children: R
     return () => {
       active = false;
     };
-  }, [allowed, pathname, router]);
+  }, [allowedKey, pathname, router]);
 
   if (!allowedHere) return <div className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-600">A verificar sessão…</div>;
   return <>{children}</>;

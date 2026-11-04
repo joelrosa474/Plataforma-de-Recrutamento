@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileDown, Sparkles, MapPin, Mail, Calendar, CalendarDays, FileText, CheckCircle, Clock, ChevronDown, ChevronUp, CircleAlert, Lightbulb, ClipboardList } from "lucide-react";
 import { api, ApiApplication, ApiJob, getSession, SessionUser } from "@/lib/api";
 
@@ -10,7 +10,9 @@ export default function CompanyCandidatesPage() {
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [jobId, setJobId] = useState("");
   const [apps, setApps] = useState<ApiApplication[]>([]);
+  const [loadingApps, setLoadingApps] = useState(false);
   const [profiles, setProfiles] = useState<Record<number, SessionUser>>({});
+  const requestedProfiles = useRef<Set<number>>(new Set());
   const [error, setError] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
@@ -31,9 +33,11 @@ export default function CompanyCandidatesPage() {
   useEffect(() => {
     const session = getSession();
     if (!session || !jobId) return;
+    setLoadingApps(true);
     api.applicationsByJob(Number(jobId), session.token)
       .then(setApps)
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoadingApps(false));
   }, [jobId]);
 
   // Fallback caso a API não traga os dados embutidos
@@ -41,13 +45,14 @@ export default function CompanyCandidatesPage() {
     const session = getSession();
     if (!session) return;
     apps.forEach((app) => {
-      if (!app.candidato && !profiles[app.candidato_id]) {
+      if (!app.candidato && !requestedProfiles.current.has(app.candidato_id)) {
+        requestedProfiles.current.add(app.candidato_id);
         api.candidateProfile(app.candidato_id, session.token)
           .then((profile) => setProfiles((curr) => ({ ...curr, [app.candidato_id]: profile })))
           .catch(() => undefined);
       }
     });
-  }, [apps, profiles]);
+  }, [apps]);
 
   async function changePhase(app: ApiApplication, phase: ApiApplication["fase_atual"]) {
     const session = getSession();
@@ -157,7 +162,11 @@ export default function CompanyCandidatesPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {jobId && apps.length === 0 ? (
+        {loadingApps ? (
+          <div className="p-12 text-center text-sm text-slate-500">
+            A carregar candidaturas…
+          </div>
+        ) : jobId && apps.length === 0 ? (
           <div className="p-12 text-center">
             <FileText className="mx-auto h-10 w-10 text-slate-300" />
             <p className="mt-3 text-base font-semibold text-slate-700">Nenhuma candidatura registada</p>

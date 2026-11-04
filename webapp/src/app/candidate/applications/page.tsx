@@ -52,7 +52,7 @@ export default function CandidateApplicationsPage() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Não foi possível descarregar o currículo.");
+      setError(e instanceof Error ? e.message : "Não foi possível descarregar o currículo.");
     } finally {
       setDownloadingId(null);
     }

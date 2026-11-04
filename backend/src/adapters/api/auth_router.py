@@ -1,4 +1,5 @@
 import os
+import hashlib
 import logging
 from typing import List, Literal, Optional
 from fastapi import APIRouter, HTTPException, Depends, Response, BackgroundTasks
@@ -76,7 +77,7 @@ class AtualizarPerfilRequest(BaseModel):
     competencias: List[str] = []
     linkedin_url: str | None = None
     github_url: str | None = None
-    perfil_publico_talentos: bool = False
+    perfil_publico_talentos: Optional[bool] = None
 
     @field_validator("nome")
     @classmethod
@@ -236,7 +237,6 @@ def redefinir_senha(request: RedefinirSenhaRequest, db: Session = Depends(get_db
     if not user:
         raise HTTPException(status_code=400, detail="Utilizador não encontrado.")
 
-    import hashlib
     current_fp = hashlib.sha256((user.senha_hash or "").encode("utf-8")).hexdigest()[:16]
     if current_fp != pwh_prefix:
         raise HTTPException(status_code=400, detail="Este link de recuperação expirou ou já foi utilizado.")
@@ -261,7 +261,8 @@ def atualizar_meu_perfil(request: AtualizarPerfilRequest, current_user = Depends
     current_user.competencias = request.competencias
     current_user.linkedin_url = request.linkedin_url
     current_user.github_url = request.github_url
-    current_user.perfil_publico_talentos = request.perfil_publico_talentos
+    if request.perfil_publico_talentos is not None:
+        current_user.perfil_publico_talentos = request.perfil_publico_talentos
     return UsuarioRepositorySQLAlchemy(db).salvar(current_user)
 
 
