@@ -129,17 +129,19 @@ function AuthPageContent() {
       const tokenData = await api.login(email, senha);
       const user: SessionUser = tokenData.usuario;
       saveSession(tokenData.access_token, user);
-      router.push(
+      setLoadingMessage("Sessão iniciada!");
+      setLoadingSubmessage("A carregar o seu painel de controlo…");
+      const targetUrl =
         searchParams.get("next") ??
-          (user.tipo_perfil === "Administrador"
-            ? "/admin/dashboard"
-            : user.tipo_perfil === "Empresa"
-            ? "/company/dashboard"
-            : "/candidate/dashboard")
-      );
+        (user.tipo_perfil === "Administrador"
+          ? "/admin/dashboard"
+          : user.tipo_perfil === "Empresa"
+          ? "/company/dashboard"
+          : "/candidate/dashboard");
+      router.push(targetUrl);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ocorreu um erro inesperado.");
-    } finally {
       setLoading(false);
     }
   }
@@ -160,12 +162,11 @@ function AuthPageContent() {
       const tokenData = await api.login(loginEmail, loginPassword);
       const user: SessionUser = tokenData.usuario;
       saveSession(tokenData.access_token, user);
-      router.push(
-        user.tipo_perfil === "Empresa" ? "/company/dashboard" : "/candidate/dashboard"
-      );
+      const targetUrl = user.tipo_perfil === "Empresa" ? "/company/dashboard" : "/candidate/dashboard";
+      router.push(targetUrl);
+      router.refresh();
     } catch {
       setMode("login");
-    } finally {
       setLoading(false);
     }
   }

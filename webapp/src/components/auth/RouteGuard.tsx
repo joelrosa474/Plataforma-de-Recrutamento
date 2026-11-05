@@ -21,12 +21,12 @@ export function RouteGuard({ allowed, children }: { allowed: Role[]; children: R
     let active = true;
     setAllowedHere(false);
 
-    // A fonte de verdade da sessão e do perfil é o backend; o localStorage só
-    // conserva os dados necessários para renderizar a navegação.
+    // A fonte de verdade da sessão e do perfil é o backend; o localStorage
+    // conserva os dados necessários para o cliente e para a navegação.
     api.myProfile()
       .then((user) => {
         if (!active) return;
-        saveSession(undefined, user);
+        saveSession(session.token, user);
         if (!allowed.includes(user.tipo_perfil as Role)) {
           const dest =
             user.tipo_perfil === "Empresa"
@@ -39,8 +39,13 @@ export function RouteGuard({ allowed, children }: { allowed: Role[]; children: R
         }
         setAllowedHere(true);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
+        // Se a sessão local existe e confere com a role permitida, mantém o acesso caso haja instabilidade de rede ou cold start
+        if (session.user && allowed.includes(session.user.tipo_perfil as Role) && err?.code === "network_error") {
+          setAllowedHere(true);
+          return;
+        }
         clearSession();
         router.replace(`/auth?next=${encodeURIComponent(pathname)}`);
       });

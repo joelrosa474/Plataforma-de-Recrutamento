@@ -160,12 +160,16 @@ def login(
         usuario = use_case.usuario_repo.buscar_por_email(form_data.username)
 
         # Configura Cookie HttpOnly Seguro para Produção
-        is_prod = os.getenv("APP_ENV", "development").lower() == "production"
+        is_prod = (
+            os.getenv("APP_ENV", "development").lower() == "production"
+            or bool(os.getenv("RENDER"))
+            or bool(os.getenv("VERCEL"))
+        )
         response.set_cookie(
             key="rh_access_token",
             value=token,
             httponly=True,
-            secure=is_prod,
+            secure=True if is_prod else False,
             # O frontend e a API podem estar em domínios diferentes em produção.
             # SameSite=None permite o envio controlado pelo CORS; Secure é obrigatório.
             samesite="none" if is_prod else "lax",
@@ -181,7 +185,17 @@ def login(
 @router.post("/logout")
 def logout(response: Response):
     """Limpa o cookie de sessão HttpOnly."""
-    response.delete_cookie(key="rh_access_token", path="/")
+    is_prod = (
+        os.getenv("APP_ENV", "development").lower() == "production"
+        or bool(os.getenv("RENDER"))
+        or bool(os.getenv("VERCEL"))
+    )
+    response.delete_cookie(
+        key="rh_access_token",
+        path="/",
+        secure=True if is_prod else False,
+        samesite="none" if is_prod else "lax"
+    )
     return {"message": "Sessão terminada com sucesso"}
 
 

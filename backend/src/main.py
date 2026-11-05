@@ -25,8 +25,11 @@ if not logger.handlers:
 
 
 def get_allowed_origins() -> list[str]:
-    raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,https://plataforma-de-recrutamento-rouge.vercel.app")
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    if "https://plataforma-de-recrutamento-rouge.vercel.app" not in origins:
+        origins.append("https://plataforma-de-recrutamento-rouge.vercel.app")
+    return origins
 
 
 def get_csrf_trusted_origins() -> set[str]:
@@ -64,7 +67,14 @@ async def request_logging_and_headers(request: Request, call_next):
     # clientes não-browser (que não enviam o cabeçalho Origin).
     origin = request.headers.get("origin")
     allowed_origins = get_csrf_trusted_origins()
-    if request.method not in SAFE_METHODS and origin and origin not in allowed_origins:
+    has_auth_header = bool(request.headers.get("authorization"))
+    is_trusted_origin = (
+        not origin
+        or origin in allowed_origins
+        or origin.endswith(".vercel.app")
+        or has_auth_header
+    )
+    if request.method not in SAFE_METHODS and not is_trusted_origin:
         response = JSONResponse(
             status_code=403,
             content=build_error_payload(
@@ -212,6 +222,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_allowed_origins(),
+    allow_origin_regex=r"^https://.*\.vercel\.app$|^http://localhost(:\d+)?$|^http://127\.0\.0\.1(:\d+)?$|^http://192\.168\.\d+\.\d+(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

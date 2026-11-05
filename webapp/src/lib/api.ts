@@ -106,12 +106,18 @@ export class ApiError extends Error {
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export type ClientSession = { token?: undefined; user: SessionUser };
+export type ClientSession = { token?: string; user: SessionUser };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const session = getSession();
+  const headers = new Headers(init?.headers);
+  if (session?.token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${session.token}`);
+  }
   const options: RequestInit = {
-    credentials: "include", // Envia cookies HttpOnly automaticamente
+    credentials: "include", // Envia cookies HttpOnly quando suportados pelo browser
     ...init,
+    headers,
   };
   let response: Response;
   try {
@@ -145,7 +151,10 @@ export const api = {
     const body = new URLSearchParams({ username: email, password: senha });
     return request<{ access_token: string; token_type: string; usuario: SessionUser }>("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
   },
-  logout: () => request<{ message: string }>("/api/auth/logout", { method: "POST" }),
+  logout: () => {
+    clearSession();
+    return request<{ message: string }>("/api/auth/logout", { method: "POST" });
+  },
   requestPasswordReset: (email: string) =>
     request<{ message: string; debug_token?: string; debug_reset_link?: string }>("/api/auth/recuperar-senha", {
       method: "POST",
@@ -256,18 +265,19 @@ export function getSession(): ClientSession | null {
   const raw = window.localStorage.getItem("rh-session");
   if (!raw) return null;
   try {
-    const stored = JSON.parse(raw) as { user?: SessionUser };
-    return stored.user ? { user: stored.user } : null;
+    const stored = JSON.parse(raw) as { token?: string; user?: SessionUser };
+    return stored.user ? { token: stored.token || undefined, user: stored.user } : null;
   } catch {
     window.localStorage.removeItem("rh-session");
     return null;
   }
 }
 
-export function saveSession(_token: string | undefined, user: SessionUser) {
-  // O JWT fica exclusivamente no cookie HttpOnly. Apenas os dados de interface
-  // necessários ao RouteGuard são persistidos no navegador.
-  window.localStorage.setItem("rh-session", JSON.stringify({ user }));
+export function saveSession(token: string | undefined, user: SessionUser) {
+  if (typeof window === "undefined") return;
+  const existing = getSession();
+  const tokenToSave = token || existing?.token;
+  window.localStorage.setItem("rh-session", JSON.stringify({ token: tokenToSave, user }));
 }
 
 export function clearSession() {
