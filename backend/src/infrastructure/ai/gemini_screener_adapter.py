@@ -70,15 +70,121 @@ _PALAVRAS_NAO_CV = [
 class GeminiScreenerAdapter(AIScreenerPort):
     def __init__(self):
         api_key = os.environ.get("GEMINI_API_KEY")
+        backup_api_key = os.environ.get("GEMINI_BACKUP_API_KEY") or api_key
+
         if not api_key:
             logger.warning("GEMINI_API_KEY nao encontrada. IA desativada.")
             self.client = None
+            self.backup_client = None
         else:
             self.client = genai.Client(api_key=api_key)
+            self.backup_client = (
+                genai.Client(api_key=backup_api_key)
+                if backup_api_key and backup_api_key != api_key
+                else self.client
+            )
 
-        # Modelo oficial estavel. Pode ser sobrescrito via variavel GEMINI_MODEL.
-        self.model_name = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
-        logger.info(f"[Gemini] Adaptador inicializado. Modelo: {self.model_name}")
+        # Modelo principal (ativo)
+        self.primary_model = (
+            os.environ.get("GEMINI_PRIMARY_MODEL")
+            or os.environ.get("GEMINI_MODEL")
+            or "gemini-3.8-flash"
+        ).strip()
+
+        # Modelo secundário (standby / contingência)
+        self.backup_model = os.environ.get(
+            "GEMINI_BACKUP_MODEL", "gemini-3.5-flash-lite"
+        ).strip()
+
+        # Controle de Circuit-Breaker / Cooldown para o modelo primário
+        self._primary_cooldown_until = 0.0
+
+        logger.info(
+            f"[Gemini] Alta Disponibilidade configurada:\n"
+            f"   - Principal:  {self.primary_model}\n"
+            f"   - Secundário: {self.backup_model}"
+        )
+
+    @property
+    def model_name(self) -> str:
+        """Retrocompatibilidade com logs e propriedades que consultam model_name."""
+        return self.primary_model
+
+    def _generate_content_with_fallback(self, contents: str, response_schema: type[BaseModel], temperature: float = 0.2) -> dict:
+        """
+        Executa a chamada à API do Gemini com failover automático:
+        1. Tenta o Modelo Principal.
+        2. Se o principal falhar por cota (429), indisponibilidade (503/500) ou 404,
+           transfere imediatamente para o Modelo Secundário (Standby) e ativa cooldown.
+        3. Mantém modelos universais de garantia caso os nomes configurados sofram erro 404.
+        """
+        if not self.client:
+            raise RuntimeError("Cliente Gemini não inicializado.")
+
+        now = time.time()
+        in_cooldown = now < self._primary_cooldown_until
+
+        if in_cooldown:
+            logger.info(f"[Gemini Cooldown] Modelo principal em repouso. Direcionando direto para secundário ({self.backup_model}).")
+            candidates = [
+                (self.backup_model, self.backup_client, "secundario"),
+                (self.primary_model, self.client, "principal"),
+            ]
+        else:
+            candidates = [
+                (self.primary_model, self.client, "principal"),
+                (self.backup_model, self.backup_client, "secundario"),
+            ]
+
+        # Modelos universais de garantia de segurança caso haja 404 nos configurados
+        safety_fallbacks = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest"]
+        for sf in safety_fallbacks:
+            if sf not in [c[0] for c in candidates]:
+                candidates.append((sf, self.client, "garantia"))
+
+        last_error = None
+
+        for model, client_to_use, role in candidates:
+            if not client_to_use:
+                continue
+
+            for attempt in range(2):
+                try:
+                    response = client_to_use.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_schema=response_schema,
+                            temperature=temperature,
+                        ),
+                    )
+                    if role == "secundario" and not in_cooldown:
+                        logger.warning(f"[Gemini Failover] Requisição concluída com sucesso pelo modelo secundário ({model}).")
+                    return json.loads(response.text)
+                except Exception as exc:
+                    last_error = exc
+                    err_str = str(exc)
+
+                    # 404 / NOT_FOUND: pula imediatamente para o próximo modelo
+                    if "404" in err_str or "NOT_FOUND" in err_str:
+                        logger.warning(f"[Gemini] Modelo {role} '{model}' indisponível (404). Alternando para próximo...")
+                        break
+
+                    is_transient = any(c in err_str for c in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED", "500"))
+                    if is_transient:
+                        if role == "principal":
+                            self._primary_cooldown_until = time.time() + 60.0
+                            logger.warning(
+                                f"[Gemini Failover] Modelo principal '{model}' instável ou cota esgotada ({exc}). "
+                                f"Ativando modelo secundário '{self.backup_model}' (cooldown de 60s)."
+                            )
+                        if attempt == 0:
+                            time.sleep(1.0)
+                            continue
+                    break
+
+        raise last_error or RuntimeError("Todos os modelos Gemini falharam.")
 
     # ── Verificação primária por texto (sem IA, sempre disponível) ───────────
 
@@ -155,37 +261,23 @@ TEXTO DO DOCUMENTO:
 
 Responda apenas com o JSON solicitado."""
 
-        for attempt in range(3):
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=ValidacaoDocumentoSchema,
-                        temperature=0.1,
-                    ),
-                )
-                result = json.loads(response.text)
-                e_curriculo = bool(result.get("e_curriculo", True))
-                motivo = str(result.get("motivo", ""))
-                logger.info(f"[Gemini] Verificacao de documento: e_curriculo={e_curriculo}, motivo={motivo[:80]}")
-                return e_curriculo, motivo
-            except Exception as exc:
-                err_str = str(exc)
-                if attempt < 2 and any(c in err_str for c in ("503", "UNAVAILABLE", "429", "500")):
-                    wait = 2.0 * (attempt + 1)
-                    logger.warning(f"[Gemini] Verificacao — tentativa {attempt+1}/3 falhou ({err_str[:60]}). Aguardando {wait}s...")
-                    time.sleep(wait)
-                    continue
-                logger.error(f"[Gemini] Falha definitiva na verificacao do documento (modelo: {self.model_name}): {exc}")
-                # Fallback: usar o resultado da heuristica de texto
-                if resultado_texto is True:
-                    return True, f"IA indisponivel. Heuristica aceita o documento como possivel CV ({motivo_texto})."
-                # Inconclusivo + IA falhou → aceitar por beneficio da duvida
-                return True, "Nao foi possivel verificar o documento. Triagem normal aplicada."
-
-        return True, "Verificacao concluida com resultado padrao."
+        try:
+            result = self._generate_content_with_fallback(
+                contents=prompt,
+                response_schema=ValidacaoDocumentoSchema,
+                temperature=0.1,
+            )
+            e_curriculo = bool(result.get("e_curriculo", True))
+            motivo = str(result.get("motivo", ""))
+            logger.info(f"[Gemini] Verificacao de documento: e_curriculo={e_curriculo}, motivo={motivo[:80]}")
+            return e_curriculo, motivo
+        except Exception as exc:
+            logger.error(f"[Gemini] Falha definitiva na verificacao do documento: {exc}")
+            # Fallback: usar o resultado da heuristica de texto
+            if resultado_texto is True:
+                return True, f"IA indisponivel. Heuristica aceita o documento como possivel CV ({motivo_texto})."
+            # Inconclusivo + IA falhou
+            return True, "Nao foi possivel verificar o documento. Triagem normal aplicada."
 
     # ── Avaliação de candidatura ──────────────────────────────────────────────
 
@@ -211,39 +303,31 @@ Avalie o quao bem o curriculo atende aos requisitos e a descricao da vaga. Retor
 - "evidencias_experiencia": lista com ate 3 evidencias objetivas (experiencia, projeto ou formacao) relevantes.
 - "recomendacao": proximo passo objetivo para o recrutador. A decisao final e humana."""
 
-        for attempt in range(3):
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=MatchScoreSchema,
-                        temperature=0.2,
-                    ),
-                )
-                result = json.loads(response.text)
-                score = float(result.get("score", 50.0))
-                justificativa = str(result.get("justificativa") or "Avaliacao concluida pela IA.")
-                analise = {
-                    "competencias_alinhadas": self._lista_limitada(result.get("competencias_alinhadas"), 5),
-                    "requisitos_em_falta": self._lista_limitada(result.get("requisitos_em_falta"), 5),
-                    "evidencias_experiencia": self._lista_limitada(result.get("evidencias_experiencia"), 3),
-                    "recomendacao": str(result.get("recomendacao") or "Reveja o curriculo e decida o proximo passo de forma humana."),
-                }
-                logger.info(f"[Gemini] Triagem concluida: score={score:.1f}")
-                return max(0.0, min(100.0, score)), justificativa, analise
-            except Exception as exc:
-                err_str = str(exc)
-                if attempt < 2 and any(c in err_str for c in ("503", "UNAVAILABLE", "429", "500")):
-                    wait = 2.0 * (attempt + 1)
-                    logger.warning(f"[Gemini] Triagem — tentativa {attempt+1}/3 falhou. Aguardando {wait}s...")
-                    time.sleep(wait)
-                    continue
-                logger.error(f"[Gemini] Falha definitiva na avaliacao (modelo: {self.model_name}): {exc}")
-                return 50.0, "Nao foi possivel gerar a justificativa detalhada devido a uma instabilidade temporaria na API.", self._analise_padrao()
+        try:
+            result = self._generate_content_with_fallback(
+                contents=prompt,
+                response_schema=MatchScoreSchema,
+                temperature=0.2,
+            )
+            raw_score = float(result.get("score", 50.0))
+            if 0 < raw_score <= 10.0:
+                score = raw_score * 10.0
+            else:
+                score = raw_score
+            score = max(0.0, min(100.0, score))
 
-        return 50.0, "Analise concluida com pontuacao padrao.", self._analise_padrao()
+            justificativa = str(result.get("justificativa") or "Avaliacao concluida pela IA.")
+            analise = {
+                "competencias_alinhadas": self._lista_limitada(result.get("competencias_alinhadas"), 5),
+                "requisitos_em_falta": self._lista_limitada(result.get("requisitos_em_falta"), 5),
+                "evidencias_experiencia": self._lista_limitada(result.get("evidencias_experiencia"), 3),
+                "recomendacao": str(result.get("recomendacao") or "Reveja o curriculo e decida o proximo passo de forma humana."),
+            }
+            logger.info(f"[Gemini] Triagem concluida: score={score:.1f}")
+            return score, justificativa, analise
+        except Exception as exc:
+            logger.error(f"[Gemini] Falha definitiva na avaliacao: {exc}")
+            return 50.0, "Nao foi possivel gerar a justificativa detalhada devido a uma instabilidade temporaria na API.", self._analise_padrao()
 
     def calcular_match_score(self, curriculo_texto: str, vaga_descricao: str, vaga_requisitos: list[str]) -> float:
         score, _, _ = self.avaliar_candidatura(curriculo_texto, vaga_descricao, vaga_requisitos)
@@ -264,16 +348,11 @@ Avalie o quao bem o curriculo atende aos requisitos e a descricao da vaga. Retor
             "Para cada pergunta, indique um criterio objetivo de avaliacao. A decisao final e humana."
         )
         try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
+            dados = self._generate_content_with_fallback(
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=RoteiroEntrevistaSchema,
-                    temperature=0.25,
-                ),
+                response_schema=RoteiroEntrevistaSchema,
+                temperature=0.25,
             )
-            dados = json.loads(response.text)
             perguntas = dados.get("perguntas", [])
             resultado = [
                 {
@@ -298,26 +377,16 @@ Avalie o quao bem o curriculo atende aos requisitos e a descricao da vaga. Retor
             f"Analise o seguinte curriculo e extraia todas as habilidades (skills) tecnicas e comportamentais.\n"
             f"Retorne uma lista limpa e padronizada.\n\nCURRICULO:\n{curriculo_texto}"
         )
-        for attempt in range(3):
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=HabilidadesSchema,
-                        temperature=0.1,
-                    ),
-                )
-                result = json.loads(response.text)
-                return result.get("habilidades", [])
-            except Exception as exc:
-                if attempt < 2 and any(c in str(exc) for c in ("503", "UNAVAILABLE", "429")):
-                    time.sleep(1.5 * (attempt + 1))
-                    continue
-                logger.error(f"[Gemini] Erro ao extrair habilidades: {exc}")
-                return []
-        return []
+        try:
+            result = self._generate_content_with_fallback(
+                contents=prompt,
+                response_schema=HabilidadesSchema,
+                temperature=0.1,
+            )
+            return result.get("habilidades", [])
+        except Exception as exc:
+            logger.error(f"[Gemini] Erro ao extrair habilidades: {exc}")
+            return []
 
     # ── Helpers estáticos ─────────────────────────────────────────────────────
 

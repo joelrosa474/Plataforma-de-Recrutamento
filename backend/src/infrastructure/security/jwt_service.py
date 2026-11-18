@@ -1,7 +1,15 @@
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from dotenv import load_dotenv
 from jose import jwt, JWTError
+
+load_dotenv()
+# Fallback para carregar explicitamente do diretório raiz do backend caso executado de outro diretório
+if not os.environ.get("JWT_SECRET_KEY"):
+    _dotenv_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")
+    if os.path.exists(_dotenv_path):
+        load_dotenv(_dotenv_path)
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 if not SECRET_KEY:
