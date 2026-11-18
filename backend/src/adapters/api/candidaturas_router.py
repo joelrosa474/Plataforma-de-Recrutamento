@@ -220,6 +220,7 @@ async def aplicar_para_vaga(
     vaga_id: int = Form(...),
     curriculo_pdf: UploadFile = File(...),
     current_user = Depends(get_current_candidato),
+    db: Session = Depends(get_db),
     use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case)
 ):
     try:
@@ -262,7 +263,6 @@ async def aplicar_para_vaga(
         # Notifica imediatamente a empresa
         vaga = use_case.vaga_repo.buscar_por_id(vaga_id)
         if vaga and vaga.empresa_id:
-            db = use_case.candidatura_repo.db
             criar_notificacao(db, vaga.empresa_id, "Nova candidatura recebida", f"{current_user.nome} candidatou-se à vaga {vaga.titulo}.")
             db.commit()
 
@@ -428,6 +428,7 @@ def atualizar_fase(
     request: AtualizarFaseRequest,
     background_tasks: BackgroundTasks,
     current_user = Depends(get_current_empresa),
+    db: Session = Depends(get_db),
     use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case)
 ):
     candidatura = use_case.candidatura_repo.buscar_por_id(candidatura_id)
@@ -441,7 +442,6 @@ def atualizar_fase(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if atualizada:
-        db = use_case.candidatura_repo.db
         criar_notificacao(db, atualizada.candidato_id, "Atualização de candidatura", f"A sua candidatura avançou para: {request.fase_atual}.")
         db.commit()
 
@@ -472,6 +472,7 @@ def agendar_entrevista(
     request: AgendarEntrevistaRequest,
     background_tasks: BackgroundTasks,
     current_user=Depends(get_current_empresa),
+    db: Session = Depends(get_db),
     use_case: RealizarCandidaturaUseCase = Depends(get_candidaturas_use_case),
 ):
     candidatura = use_case.candidatura_repo.buscar_por_id(candidatura_id)
@@ -487,7 +488,6 @@ def agendar_entrevista(
     candidatura.entrevista_link = request.entrevista_link
     candidatura.entrevista_notas = request.entrevista_notas
     atualizada = use_case.candidatura_repo.salvar(candidatura)
-    db = use_case.candidatura_repo.db
     data_formatada = request.entrevista_data.astimezone(timezone.utc).strftime("%d/%m/%Y às %H:%M UTC")
     criar_notificacao(db, atualizada.candidato_id, "Entrevista agendada", f"A sua entrevista para '{vaga.titulo}' foi agendada para {data_formatada}.")
     db.commit()
