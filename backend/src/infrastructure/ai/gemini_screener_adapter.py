@@ -84,16 +84,16 @@ class GeminiScreenerAdapter(AIScreenerPort):
                 else self.client
             )
 
-        # Modelo principal (ativo)
+        # Modelo principal (ativo) - gemini-3.5-flash-lite é ultra rápido, estável e livre de sobrecarga 503
         self.primary_model = (
             os.environ.get("GEMINI_PRIMARY_MODEL")
             or os.environ.get("GEMINI_MODEL")
-            or "gemini-3.8-flash"
+            or "gemini-3.5-flash-lite"
         ).strip()
 
         # Modelo secundário (standby / contingência)
         self.backup_model = os.environ.get(
-            "GEMINI_BACKUP_MODEL", "gemini-3.5-flash-lite"
+            "GEMINI_BACKUP_MODEL", "gemini-3.8-flash"
         ).strip()
 
         # Controle de Circuit-Breaker / Cooldown para o modelo primário

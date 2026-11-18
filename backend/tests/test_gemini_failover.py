@@ -8,13 +8,13 @@ from src.infrastructure.ai.gemini_screener_adapter import GeminiScreenerAdapter,
 class TestGeminiFailover(unittest.TestCase):
     def setUp(self):
         os.environ["GEMINI_API_KEY"] = "fake-key-for-test"
-        os.environ["GEMINI_PRIMARY_MODEL"] = "gemini-3.8-flash"
-        os.environ["GEMINI_BACKUP_MODEL"] = "gemini-3.5-flash-lite"
+        os.environ["GEMINI_PRIMARY_MODEL"] = "gemini-3.5-flash-lite"
+        os.environ["GEMINI_BACKUP_MODEL"] = "gemini-3.8-flash"
 
     def test_inicializacao_com_dois_modelos(self):
         adapter = GeminiScreenerAdapter()
-        self.assertEqual(adapter.primary_model, "gemini-3.8-flash")
-        self.assertEqual(adapter.backup_model, "gemini-3.5-flash-lite")
+        self.assertEqual(adapter.primary_model, "gemini-3.5-flash-lite")
+        self.assertEqual(adapter.backup_model, "gemini-3.8-flash")
         self.assertIsNotNone(adapter.client)
         self.assertIsNotNone(adapter.backup_client)
 
@@ -31,7 +31,7 @@ class TestGeminiFailover(unittest.TestCase):
         # Garante que o modelo chamado foi o primário
         adapter.client.models.generate_content.assert_called_once()
         call_kwargs = adapter.client.models.generate_content.call_args[1]
-        self.assertEqual(call_kwargs["model"], "gemini-3.8-flash")
+        self.assertEqual(call_kwargs["model"], "gemini-3.5-flash-lite")
 
     def test_falha_no_principal_aciona_secundario_com_cooldown(self):
         adapter = GeminiScreenerAdapter()
@@ -41,7 +41,7 @@ class TestGeminiFailover(unittest.TestCase):
         mock_success.text = '{"score": 90.0, "justificativa": "Backup ok", "competencias_alinhadas": [], "requisitos_em_falta": [], "evidencias_experiencia": [], "recomendacao": "Ok"}'
 
         def side_effect(*args, **kwargs):
-            if kwargs.get("model") == "gemini-3.8-flash":
+            if kwargs.get("model") == "gemini-3.5-flash-lite":
                 raise RuntimeError("429 RESOURCE_EXHAUSTED Quota exceeded")
             return mock_success
 
@@ -57,7 +57,7 @@ class TestGeminiFailover(unittest.TestCase):
         adapter.client.models.generate_content.reset_mock()
         adapter._generate_content_with_fallback("teste2", MatchScoreSchema)
         primeira_chamada_modelo = adapter.client.models.generate_content.call_args_list[0][1]["model"]
-        self.assertEqual(primeira_chamada_modelo, "gemini-3.5-flash-lite")
+        self.assertEqual(primeira_chamada_modelo, "gemini-3.8-flash")
 
 
 if __name__ == "__main__":
